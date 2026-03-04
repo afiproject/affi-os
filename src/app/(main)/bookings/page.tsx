@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getBookings, updateBookingStatus, createRoom, getRooms } from "@/lib/demo-store";
+import {
+  getBookings, updateBookingStatus, createRoom, getPrivateEvents,
+  addBookingCalendarEvent, removeBookingCalendarEvent,
+} from "@/lib/demo-store";
 import type { DemoBooking } from "@/lib/demo-store";
 import { CATEGORY_LABELS, DEMO_USER } from "@/lib/demo-data";
 
@@ -17,15 +20,45 @@ export default function BookingsPage() {
   const router = useRouter();
   const [bookings, setBookings] = useState<DemoBooking[]>([]);
   const [tab, setTab] = useState<"active" | "past">("active");
+  const [calendarIds, setCalendarIds] = useState<Set<string>>(new Set());
 
-  useEffect(() => { setBookings(getBookings()); }, []);
+  function refreshCalendarIds() {
+    const events = getPrivateEvents();
+    const ids = new Set(events.filter(e => e.id.startsWith("booking:")).map(e => e.id.replace("booking:", "")));
+    setCalendarIds(ids);
+  }
+
+  useEffect(() => {
+    setBookings(getBookings());
+    refreshCalendarIds();
+  }, []);
 
   const active = bookings.filter((b) => b.status === "confirmed" || b.status === "pending");
   const past = bookings.filter((b) => b.status === "completed" || b.status === "cancelled");
   const shown = tab === "active" ? active : past;
 
-  function handleComplete(id: string) { updateBookingStatus(id, "completed"); setBookings(getBookings()); }
-  function handleCancel(id: string) { updateBookingStatus(id, "cancelled"); setBookings(getBookings()); }
+  function handleConfirm(id: string) {
+    updateBookingStatus(id, "confirmed");
+    const updated = getBookings();
+    setBookings(updated);
+    // Auto-add calendar event on confirm
+    const booking = updated.find(b => b.id === id);
+    if (booking) addBookingCalendarEvent(booking);
+    refreshCalendarIds();
+  }
+
+  function handleComplete(id: string) {
+    updateBookingStatus(id, "completed");
+    setBookings(getBookings());
+  }
+
+  function handleCancel(id: string) {
+    updateBookingStatus(id, "cancelled");
+    // Remove calendar event on cancel
+    removeBookingCalendarEvent(id);
+    setBookings(getBookings());
+    refreshCalendarIds();
+  }
 
   function handleOpenRoom(b: DemoBooking) {
     const room = createRoom(
@@ -40,7 +73,6 @@ export default function BookingsPage() {
     router.push(`/rooms/${room.id}`);
   }
 
-  // Check if booking is within chat window (5min before start to end + 24h)
   function canOpenRoom(b: DemoBooking): boolean {
     if (b.status !== "confirmed") return false;
     const now = Date.now();
@@ -77,6 +109,7 @@ export default function BookingsPage() {
           const st = STATUS_LABELS[b.status];
           const start = new Date(b.slot.startAt);
           const roomReady = canOpenRoom(b);
+          const onCalendar = calendarIds.has(b.id);
           return (
             <div key={b.id} className="card p-4">
               <div className="flex items-center justify-between">
@@ -84,7 +117,15 @@ export default function BookingsPage() {
                   <span>{b.slot.mode === "call" ? "📞" : "🚶"}</span>
                   <span className="font-medium">{CATEGORY_LABELS[b.slot.category] ?? b.slot.category}</span>
                 </div>
-                <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: "var(--accent-soft)", color: st.color }}>{st.label}</span>
+                <div className="flex items-center gap-1.5">
+                  {onCalendar && (
+                    <span className="rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                      style={{ backgroundColor: "rgba(52,199,123,0.12)", color: "var(--success)" }}>
+                      📅 カレンダー済
+                    </span>
+                  )}
+                  <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: "var(--accent-soft)", color: st.color }}>{st.label}</span>
+                </div>
               </div>
               <div className="mt-2 space-y-1 text-sm" style={{ color: "var(--muted)" }}>
                 <p>📅 {start.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" })} {start.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</p>
@@ -92,7 +133,6 @@ export default function BookingsPage() {
                 <p>🎫 {b.slot.priceYen}枚</p>
               </div>
 
-              {/* Chat / Call / Video buttons */}
               {roomReady && (
                 <div className="mt-3 flex gap-2">
                   <button onClick={() => handleOpenRoom(b)} className="btn-primary flex-1 text-xs !py-2">💬 チャット</button>
@@ -111,7 +151,7 @@ export default function BookingsPage() {
               )}
               {b.status === "pending" && (
                 <div className="mt-3 flex gap-2">
-                  <button onClick={() => { updateBookingStatus(b.id, "confirmed"); setBookings(getBookings()); }} className="btn-primary flex-1 text-xs !py-2">承認（デモ）</button>
+                  <button onClick={() => handleConfirm(b.id)} className="btn-primary flex-1 text-xs !py-2">承認（デモ）</button>
                   <button onClick={() => handleCancel(b.id)} className="btn-outline flex-1 text-xs" style={{ color: "var(--danger)" }}>拒否</button>
                 </div>
               )}

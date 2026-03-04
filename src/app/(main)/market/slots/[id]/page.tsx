@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { CATEGORY_LABELS } from "@/lib/demo-data";
-import { getSlots, addBooking, getTicketBalance } from "@/lib/demo-store";
+import { getSlots, addBooking, getTicketBalance, addBookingCalendarEvent } from "@/lib/demo-store";
 import type { DemoSlot } from "@/lib/demo-store";
 
 export default function SlotDetailPage() {
@@ -34,13 +34,18 @@ export default function SlotDetailPage() {
 
   function handleBook() {
     const status = slot!.bookingType === "instant" ? "confirmed" as const : "pending" as const;
-    addBooking({
+    const booking = {
       id: `bk-${Date.now()}`,
       slotId: slot!.id,
       slot: slot!,
       status,
       createdAt: new Date().toISOString(),
-    });
+    };
+    addBooking(booking);
+    // Auto-add to calendar for instant bookings (confirmed immediately)
+    if (status === "confirmed") {
+      addBookingCalendarEvent(booking);
+    }
     setBooked(true);
   }
 

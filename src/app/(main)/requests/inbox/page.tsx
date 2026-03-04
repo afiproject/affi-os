@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getRequests, updateRequestStatus, addBooking, addTicketEntry } from "@/lib/demo-store";
+import { getRequests, updateRequestStatus, addBooking, addTicketEntry, addBookingCalendarEvent } from "@/lib/demo-store";
 import type { DemoRequest } from "@/lib/demo-store";
 
 const STATUS_STYLES: Record<string, { label: string; color: string }> = {
@@ -19,7 +19,7 @@ export default function RequestInboxPage() {
 
   function handleAccept(req: DemoRequest) {
     updateRequestStatus(req.id, "accepted");
-    addBooking({
+    const booking = {
       id: `bk-${Date.now()}`,
       slotId: `auto-${req.id}`,
       slot: {
@@ -31,13 +31,15 @@ export default function RequestInboxPage() {
         durationMinutes: req.durationMinutes,
         priceYen: req.budgetYen,
         areaValue: null,
-        bookingType: "approval",
+        bookingType: "approval" as const,
         status: "booked_confirmed",
         seller: { id: req.toUser.id, displayName: req.toUser.displayName, avatarUrl: null, verificationStatus: "verified", ratingAvg: 4.5, ratingCount: 10, cancelRate: 2.0 },
       },
-      status: "confirmed",
+      status: "confirmed" as const,
       createdAt: new Date().toISOString(),
-    });
+    };
+    addBooking(booking);
+    addBookingCalendarEvent(booking);
     setRequests(getRequests());
   }
 

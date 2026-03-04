@@ -377,12 +377,17 @@ export const INCOME_RANGE_OPTIONS = ["非公開", "〜300万", "300〜500万", "
 export const LIFE_TAG_OPTIONS = ["非喫煙", "喫煙", "お酒飲む", "お酒飲まない", "朝型", "夜型", "インドア", "アウトドア"];
 
 // ===== POI（近くの候補地点） =====
-export const DEMO_POIS = [
+export const DEMO_POIS: { id: string; name: string; category: string; lat: number; lng: number; note: string }[] = [
   { id: "poi-1", name: "仙台駅 アーケード", category: "公共", lat: 38.2601, lng: 140.8829, note: "雨でもOK・人が多く安全" },
   { id: "poi-2", name: "スターバックス 仙台駅前店", category: "カフェ", lat: 38.2608, lng: 140.8835, note: "Wi-Fi有・長居OK" },
-  { id: "poi-3", name: "仙台パルコ 1Fエントランス", category: "商業施設", lat: 38.2598, lng: 140.8820, note: "わかりやすい待ち合わせスポット" },
+  { id: "poi-3", name: "仙台パルコ 1Fエントランス", category: "公共", lat: 38.2598, lng: 140.8820, note: "わかりやすい待ち合わせスポット" },
   { id: "poi-4", name: "青葉通り ケヤキ並木", category: "公園", lat: 38.2612, lng: 140.8800, note: "天気いい日の散歩に最適" },
   { id: "poi-5", name: "勾当台公園", category: "公園", lat: 38.2650, lng: 140.8700, note: "広くて開放的" },
+  { id: "poi-6", name: "タリーズ 仙台マークワン店", category: "カフェ", lat: 38.2595, lng: 140.8832, note: "コンセント有・静か" },
+  { id: "poi-7", name: "牛たん利久 仙台駅前店", category: "ご飯", lat: 38.2603, lng: 140.8838, note: "仙台名物・テーブル席あり" },
+  { id: "poi-8", name: "エニタイムフィットネス 仙台駅前", category: "公共", lat: 38.2610, lng: 140.8840, note: "24h営業ジム" },
+  { id: "poi-9", name: "ドトール 青葉通り店", category: "カフェ", lat: 38.2615, lng: 140.8810, note: "リーズナブル・駅近" },
+  { id: "poi-10", name: "大戸屋 仙台駅前店", category: "ご飯", lat: 38.2600, lng: 140.8825, note: "和食定食・1人OK" },
 ];
 
 // ===== フレンドカレンダーデモイベント =====

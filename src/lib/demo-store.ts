@@ -834,3 +834,54 @@ export function checkConflict(startAt: string, endAt: string): DemoEvent | null 
     return s < ee && e > es;
   }) ?? null;
 }
+
+// ===== Booking → Calendar auto-sync =====
+export function addBookingCalendarEvent(booking: DemoBooking): boolean {
+  const sourceId = `booking:${booking.id}`;
+  const existing = getPrivateEvents();
+  // Dedup: don't add if same sourceId already exists
+  if (existing.some(e => e.id === sourceId)) return false;
+
+  const mode = booking.slot.mode === "call" ? "通話" : "対面";
+  const dur = booking.slot.durationMinutes;
+  const bufMin = 10;
+
+  const startMs = new Date(booking.slot.startAt).getTime();
+  const endMs = new Date(booking.slot.endAt).getTime();
+
+  addPrivateEvent({
+    id: sourceId,
+    title: `SLOTY：${mode}（${dur}分）`,
+    startAt: new Date(startMs).toISOString(),
+    endAt: new Date(endMs).toISOString(),
+    visibility: "busy_only",
+    memo: `予約ID: ${booking.id} / ${booking.slot.seller.displayName}`,
+    kind: "busy",
+    nearbyExclude: true,
+    bufferBefore: bufMin,
+    bufferAfter: bufMin,
+  });
+  return true;
+}
+
+export function removeBookingCalendarEvent(bookingId: string) {
+  const sourceId = `booking:${bookingId}`;
+  removePrivateEvent(sourceId);
+}
+
+// ===== KYC image storage (session-based with meta in localStorage) =====
+const kycImageCache = new Map<string, string>();
+
+export function saveKycImage(assetType: string, dataUrl: string) {
+  kycImageCache.set(`kyc_img_${assetType}`, dataUrl);
+  // Also persist to sessionStorage for tab lifetime
+  try { sessionStorage.setItem(`sloty_kyc_img_${assetType}`, dataUrl); } catch { /* quota */ }
+}
+
+export function getKycImage(assetType: string): string | null {
+  return kycImageCache.get(`kyc_img_${assetType}`) ?? (typeof sessionStorage !== "undefined" ? sessionStorage.getItem(`sloty_kyc_img_${assetType}`) : null);
+}
+
+// ===== POI categories =====
+export const POI_CATEGORIES = ["カフェ", "ご飯", "公共", "公園"] as const;
+export type PoiCategory = typeof POI_CATEGORIES[number];

@@ -7,6 +7,7 @@ import {
   updatePingStatus,
   addBooking,
   addTicketEntry,
+  addBookingCalendarEvent,
 } from "@/lib/demo-store";
 import type { DemoPing } from "@/lib/demo-store";
 import { DEMO_USER, MEETUP_PLACES } from "@/lib/demo-data";
@@ -36,7 +37,7 @@ export default function PingsPage() {
     // Create booking from ping
     const now = new Date();
     const endAt = new Date(now.getTime() + ping.durationMinutes * 60_000);
-    addBooking({
+    const booking = {
       id: `bk-ping-${Date.now()}`,
       slotId: `slot-ping-${ping.id}`,
       slot: {
@@ -48,7 +49,7 @@ export default function PingsPage() {
         durationMinutes: ping.durationMinutes,
         priceYen: 0,
         areaValue: meetupPlace,
-        bookingType: "instant",
+        bookingType: "instant" as const,
         status: "booked",
         seller: {
           id: ping.fromUser.id,
@@ -60,9 +61,11 @@ export default function PingsPage() {
           cancelRate: 2,
         },
       },
-      status: "confirmed",
+      status: "confirmed" as const,
       createdAt: now.toISOString(),
-    });
+    };
+    addBooking(booking);
+    addBookingCalendarEvent(booking);
 
     setAcceptedId(ping.id);
     setAcceptedPing(ping);

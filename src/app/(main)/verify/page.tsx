@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getMyKycRequest, submitKycRequest, runKycAiScoring, addKycAssetMeta, getKycLevel } from "@/lib/demo-store";
+import { getMyKycRequest, submitKycRequest, runKycAiScoring, addKycAssetMeta, getKycLevel, saveKycImage } from "@/lib/demo-store";
 import type { KycRequest, KycLevel } from "@/lib/demo-store";
 
 const ID_DOC_TYPES = [
@@ -11,37 +11,90 @@ const ID_DOC_TYPES = [
   { value: "student", label: "学生証（補助扱い）" },
 ];
 
+/** Compress image to max 1024px and return dataURL */
+function compressImage(file: File, maxSize = 1024): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let w = img.width, h = img.height;
+        if (w > maxSize || h > maxSize) {
+          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.8));
+      };
+      img.onerror = reject;
+      img.src = reader.result as string;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+type UploadSlot = {
+  key: string;
+  label: string;
+  sublabel: string;
+  capture?: "user" | "environment";
+  preview: string | null;
+};
+
 export default function VerifyPage() {
   const router = useRouter();
   const [level, setLevel] = useState<KycLevel>(1);
   const [kycReq, setKycReq] = useState<KycRequest | null>(null);
   const [kycLevel, setKycLevelState] = useState<KycLevel>(0);
   const [idDocType, setIdDocType] = useState("license");
-  const [selfieUploaded, setSelfieUploaded] = useState(false);
-  const [idFrontUploaded, setIdFrontUploaded] = useState(false);
-  const [idBackUploaded, setIdBackUploaded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Image previews
+  const [selfiePreview, setSelfiePreview] = useState<string | null>(null);
+  const [idFrontPreview, setIdFrontPreview] = useState<string | null>(null);
+  const [idBackPreview, setIdBackPreview] = useState<string | null>(null);
   const [livenessLeftDone, setLivenessLeftDone] = useState(false);
   const [livenessRightDone, setLivenessRightDone] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+
   const fileRef = useRef<HTMLInputElement>(null);
-  const [uploadTarget, setUploadTarget] = useState<string>("");
+  const [activeUpload, setActiveUpload] = useState<string>("");
 
   useEffect(() => {
     setKycReq(getMyKycRequest());
     setKycLevelState(getKycLevel());
   }, []);
 
-  function handleFileUpload(target: string) {
-    setUploadTarget(target);
-    fileRef.current?.click();
-  }
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  function onFileSelected() {
-    // In demo mode, just mark as uploaded
-    if (uploadTarget === "selfie") setSelfieUploaded(true);
-    if (uploadTarget === "id_front") setIdFrontUploaded(true);
-    if (uploadTarget === "id_back") setIdBackUploaded(true);
+    try {
+      const dataUrl = await compressImage(file);
+      const target = activeUpload;
+
+      // Save to session/memory
+      saveKycImage(target, dataUrl);
+
+      if (target === "selfie") setSelfiePreview(dataUrl);
+      if (target === "id_front") setIdFrontPreview(dataUrl);
+      if (target === "id_back") setIdBackPreview(dataUrl);
+    } catch {
+      // ignore compression error
+    }
     if (fileRef.current) fileRef.current.value = "";
+  }, [activeUpload]);
+
+  function triggerUpload(target: string, capture?: "user" | "environment") {
+    setActiveUpload(target);
+    if (fileRef.current) {
+      fileRef.current.capture = capture ?? "";
+      fileRef.current.click();
+    }
   }
 
   function handleSubmit() {
@@ -49,7 +102,6 @@ export default function VerifyPage() {
     submitKycRequest(level);
     const req = getMyKycRequest();
     if (req) {
-      // Record asset metadata
       addKycAssetMeta(req.id, "demo-user-1", "selfie");
       if (level >= 2) {
         addKycAssetMeta(req.id, "demo-user-1", "id_front");
@@ -57,7 +109,6 @@ export default function VerifyPage() {
         addKycAssetMeta(req.id, "demo-user-1", "liveness_left");
         addKycAssetMeta(req.id, "demo-user-1", "liveness_right");
       }
-      // Auto AI scoring after 2s
       setTimeout(() => {
         runKycAiScoring(req.id);
         setKycReq(getMyKycRequest());
@@ -67,8 +118,8 @@ export default function VerifyPage() {
     setKycReq(getMyKycRequest());
   }
 
-  const canSubmitLv1 = selfieUploaded;
-  const canSubmitLv2 = selfieUploaded && idFrontUploaded && livenessLeftDone && livenessRightDone;
+  const canSubmitLv1 = !!selfiePreview;
+  const canSubmitLv2 = !!selfiePreview && !!idFrontPreview && livenessLeftDone && livenessRightDone;
   const canSubmit = level === 1 ? canSubmitLv1 : canSubmitLv2;
 
   if (kycLevel >= 2) {
@@ -90,7 +141,8 @@ export default function VerifyPage() {
       <h1 className="text-xl font-bold">本人確認</h1>
       <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>安全な利用のために本人確認をお願いします</p>
 
-      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={onFileSelected} />
+      {/* Hidden file input */}
+      <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
 
       {/* Status display */}
       {kycReq && kycReq.status !== "approved" && kycReq.status !== "none" && (
@@ -106,7 +158,7 @@ export default function VerifyPage() {
             {kycReq.status === "resubmit_required" && `🔄 再提出: ${kycReq.reviewerNote || "書類を確認してください"}`}
           </div>
           {kycReq.status === "pending_review" && (
-            <p className="mt-2 text-[10px]" style={{ color: "var(--muted)" }}>/admin/kyc で管理者が承認すると反映されます</p>
+            <p className="mt-2 text-[10px]" style={{ color: "var(--muted)" }}>/admin → 本人確認 で管理者が承認すると反映されます</p>
           )}
         </div>
       )}
@@ -135,48 +187,120 @@ export default function VerifyPage() {
           <div className="mt-4 space-y-3">
             <h3 className="text-sm font-medium">必要書類</h3>
 
-            {/* Selfie (both levels) */}
-            <div className="card p-3">
-              <div className="flex items-center justify-between">
+            {/* Selfie */}
+            <div className="card !p-3">
+              <div className="flex items-center justify-between mb-2">
                 <div>
-                  <p className="text-sm">正面セルフィー</p>
+                  <p className="text-sm font-medium">正面セルフィー</p>
                   <p className="text-[10px]" style={{ color: "var(--muted)" }}>Lv1・Lv2 共通</p>
                 </div>
-                {selfieUploaded ? (
-                  <span className="text-sm" style={{ color: "var(--success)" }}>✓ アップロード済み</span>
-                ) : (
-                  <button onClick={() => handleFileUpload("selfie")} className="btn-primary text-xs !px-3 !py-1">撮影/選択</button>
-                )}
+                {selfiePreview && <span className="text-sm" style={{ color: "var(--success)" }}>✓</span>}
+              </div>
+
+              {/* Preview */}
+              {selfiePreview ? (
+                <div className="relative rounded-lg overflow-hidden mb-2" style={{ height: 160 }}>
+                  <img src={selfiePreview} alt="selfie" className="h-full w-full object-cover" />
+                  <button onClick={() => setSelfiePreview(null)}
+                    className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white text-xs">×</button>
+                </div>
+              ) : (
+                <div className="relative rounded-lg overflow-hidden mb-2 flex items-center justify-center"
+                  style={{ height: 160, backgroundColor: "var(--accent-soft)", border: "2px dashed var(--border)" }}>
+                  {/* Face guide overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="rounded-full border-2 border-dashed" style={{ width: 100, height: 120, borderColor: "var(--muted)", opacity: 0.4 }} />
+                  </div>
+                  <p className="text-xs" style={{ color: "var(--muted)" }}>顔写真を撮影してください</p>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button onClick={() => triggerUpload("selfie", "user")} className="btn-primary flex-1 text-xs !py-2">
+                  📷 カメラで撮影
+                </button>
+                <button onClick={() => triggerUpload("selfie")} className="btn-outline flex-1 text-xs !py-2">
+                  📁 写真から選択
+                </button>
               </div>
             </div>
 
-            {/* ID document (Lv2 only) */}
+            {/* ID document (Lv2) */}
             {level >= 2 && (
               <>
-                <div className="card p-3">
-                  <p className="text-sm">身分証明書</p>
+                <div className="card !p-3">
+                  <p className="text-sm font-medium">身分証明書</p>
                   <select className="input mt-1 text-xs" value={idDocType} onChange={e => setIdDocType(e.target.value)}>
                     {ID_DOC_TYPES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
                   </select>
-                  <div className="mt-2 flex gap-2">
-                    <button onClick={() => handleFileUpload("id_front")} className={idFrontUploaded ? "btn-outline text-xs !px-2 !py-1" : "btn-primary text-xs !px-2 !py-1"}>
-                      {idFrontUploaded ? "✓ 表面" : "表面を撮影"}
-                    </button>
-                    <button onClick={() => handleFileUpload("id_back")} className={idBackUploaded ? "btn-outline text-xs !px-2 !py-1" : "btn-primary text-xs !px-2 !py-1"}>
-                      {idBackUploaded ? "✓ 裏面" : "裏面を撮影"}
-                    </button>
+
+                  {/* Front */}
+                  <div className="mt-3">
+                    <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>表面</p>
+                    {idFrontPreview ? (
+                      <div className="relative rounded-lg overflow-hidden mt-1" style={{ height: 120 }}>
+                        <img src={idFrontPreview} alt="id_front" className="h-full w-full object-cover" />
+                        <button onClick={() => setIdFrontPreview(null)}
+                          className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white text-[10px]">×</button>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg mt-1 flex items-center justify-center"
+                        style={{ height: 100, backgroundColor: "var(--accent-soft)", border: "2px dashed var(--border)" }}>
+                        {/* Card guide */}
+                        <div className="rounded border border-dashed" style={{ width: 120, height: 75, borderColor: "var(--muted)", opacity: 0.3 }} />
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-1">
+                      <button onClick={() => triggerUpload("id_front", "environment")} className="btn-primary flex-1 text-xs !py-1.5">📷 撮影</button>
+                      <button onClick={() => triggerUpload("id_front")} className="btn-outline flex-1 text-xs !py-1.5">📁 選択</button>
+                    </div>
+                  </div>
+
+                  {/* Back */}
+                  <div className="mt-3">
+                    <p className="text-xs font-medium" style={{ color: "var(--muted)" }}>裏面</p>
+                    {idBackPreview ? (
+                      <div className="relative rounded-lg overflow-hidden mt-1" style={{ height: 120 }}>
+                        <img src={idBackPreview} alt="id_back" className="h-full w-full object-cover" />
+                        <button onClick={() => setIdBackPreview(null)}
+                          className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/50 text-white text-[10px]">×</button>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg mt-1 flex items-center justify-center"
+                        style={{ height: 100, backgroundColor: "var(--accent-soft)", border: "2px dashed var(--border)" }}>
+                        <div className="rounded border border-dashed" style={{ width: 120, height: 75, borderColor: "var(--muted)", opacity: 0.3 }} />
+                      </div>
+                    )}
+                    <div className="flex gap-2 mt-1">
+                      <button onClick={() => triggerUpload("id_back", "environment")} className="btn-primary flex-1 text-xs !py-1.5">📷 撮影</button>
+                      <button onClick={() => triggerUpload("id_back")} className="btn-outline flex-1 text-xs !py-1.5">📁 選択</button>
+                    </div>
                   </div>
                 </div>
 
                 {/* Liveness check */}
-                <div className="card p-3">
-                  <p className="text-sm">ライブネスチェック</p>
-                  <p className="text-[10px]" style={{ color: "var(--muted)" }}>顔を左右に向けてください</p>
+                <div className="card !p-3">
+                  <p className="text-sm font-medium">ライブネスチェック</p>
+                  <p className="text-[10px]" style={{ color: "var(--muted)" }}>なりすまし防止のため、顔を左右に向けてください</p>
+
+                  <div className="mt-3 rounded-lg flex items-center justify-center"
+                    style={{ height: 120, backgroundColor: "var(--accent-soft)", border: "1px solid var(--border)" }}>
+                    <div className="text-center">
+                      <div className="mx-auto rounded-full border-2 border-dashed flex items-center justify-center"
+                        style={{ width: 60, height: 70, borderColor: "var(--muted)", opacity: 0.5 }}>
+                        <span className="text-2xl" style={{ opacity: 0.3 }}>🧑</span>
+                      </div>
+                      <p className="mt-1 text-[10px]" style={{ color: "var(--muted)" }}>カメラ枠（デモ）</p>
+                    </div>
+                  </div>
+
                   <div className="mt-2 flex gap-2">
-                    <button onClick={() => setLivenessLeftDone(true)} className={livenessLeftDone ? "btn-outline flex-1 text-xs !py-2" : "btn-primary flex-1 text-xs !py-2"}>
+                    <button onClick={() => setLivenessLeftDone(true)}
+                      className={`flex-1 text-xs !py-2.5 ${livenessLeftDone ? "btn-outline" : "btn-primary"}`}>
                       {livenessLeftDone ? "✓ 左向き完了" : "← 左を向く"}
                     </button>
-                    <button onClick={() => setLivenessRightDone(true)} className={livenessRightDone ? "btn-outline flex-1 text-xs !py-2" : "btn-primary flex-1 text-xs !py-2"}>
+                    <button onClick={() => setLivenessRightDone(true)}
+                      className={`flex-1 text-xs !py-2.5 ${livenessRightDone ? "btn-outline" : "btn-primary"}`}>
                       {livenessRightDone ? "✓ 右向き完了" : "右を向く →"}
                     </button>
                   </div>

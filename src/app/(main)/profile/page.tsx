@@ -55,8 +55,31 @@ export default function ProfilePage() {
     saveProfile(next);
   }
   function refreshTickets() { setTickets(getTicketBalance()); setLedger(getTicketLedger()); }
-  function handlePurchase(pkg: typeof TICKET_PACKAGES[number]) { purchaseTickets(pkg.ticketCount, pkg.priceYen); refreshTickets(); }
-  function handleSubscribe(plan: SubscriptionPlan) { setSubscription(plan); setSub(getSubscription()); refreshTickets(); }
+  function handlePurchase(pkg: typeof TICKET_PACKAGES[number]) {
+    const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === "1";
+    if (isDemo) {
+      purchaseTickets(pkg.ticketCount, pkg.priceYen);
+      refreshTickets();
+    } else {
+      // Production: redirect to Stripe Checkout
+      // TODO: Replace with actual Stripe Checkout session creation via API route
+      // fetch("/api/checkout", { method: "POST", body: JSON.stringify({ ticketCount: pkg.ticketCount, priceYen: pkg.priceYen }) })
+      //   .then(r => r.json()).then(d => window.location.href = d.url);
+      alert(`本番モード: Stripe Checkoutに遷移します（${pkg.ticketCount}🎫 / ¥${pkg.priceYen.toLocaleString()}）\n※ STRIPE_SECRET_KEY を設定してください`);
+    }
+  }
+  function handleSubscribe(plan: SubscriptionPlan) {
+    const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === "1";
+    if (isDemo) {
+      setSubscription(plan);
+      setSub(getSubscription());
+      refreshTickets();
+    } else {
+      // Production: redirect to Stripe Billing Portal
+      // TODO: Replace with actual Stripe Billing session
+      alert(`本番モード: Stripe Billingに遷移します（${plan}）\n※ STRIPE_SECRET_KEY を設定してください`);
+    }
+  }
   function addDemoPhoto(id: string) { persist({ photos: [...profile!.photos, id].slice(0, 10) }); }
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return;
