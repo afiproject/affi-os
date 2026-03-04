@@ -34,19 +34,23 @@ export default function SquarePage() {
         <span className="text-xs font-medium" style={{ color: "var(--accent)" }}>🎫 {tickets}枚</span>
       </div>
 
-      <Link href="/square/new" className="btn-primary mt-4 flex w-full items-center justify-center gap-2 text-sm">
+      <Link href="/square/new"
+        className="mt-4 flex w-full items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold text-white"
+        style={{ background: "linear-gradient(135deg, #7B8CFF 0%, #B79DFF 100%)" }}>
         + 投稿する <span className="rounded-full px-1.5 py-0.5 text-xs" style={{ backgroundColor: "rgba(255,255,255,0.2)" }}>2🎫</span>
       </Link>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 space-y-4">
         {posts.map((post) => (
           <SquareCard
             key={post.id}
             {...post}
+            photos={post.photos ?? []}
             likeCount={likeCounts[post.id] ?? post.likeCount}
             isLiked={likes[post.id] ?? false}
             onLike={toggleLike}
             onRequest={(postId) => router.push(`/square/request/${postId}`)}
+            onTap={(postId) => router.push(`/square/post/${postId}`)}
           />
         ))}
       </div>

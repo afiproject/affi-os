@@ -36,9 +36,11 @@ export type DemoPost = {
   text: string;
   tags: string[];
   preferredMode: string;
+  photos: string[];
   likeCount: number;
   createdAt: string;
   user: { id: string; displayName: string; avatarUrl: string | null };
+  aiFlag?: boolean;
 };
 
 export type DemoRequest = {
