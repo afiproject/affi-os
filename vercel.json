@@ -1,3 +1,9 @@
 {
-  "builds": [{ "src": "package.json", "use": "@vercel/next" }]
+  "builds": [{ "src": "package.json", "use": "@vercel/next" }],
+  "env": {
+    "NEXT_PUBLIC_DEMO_MODE": "1",
+    "ADMIN_PASSCODE": "sloty2024",
+    "OWNER_EMAIL": "demo@sloty.app",
+    "RETENTION_DAYS": "180"
+  }
 }
