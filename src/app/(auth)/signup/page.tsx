@@ -42,10 +42,6 @@ export default function SignupPage() {
           <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
             {email} に確認メールを送信しました。メール内のリンクをクリックして登録を完了してください。
           </p>
-          <div className="mt-4 card p-3 text-xs" style={{ backgroundColor: "var(--accent-soft)" }}>
-            <p className="font-semibold">デモモード:</p>
-            <p className="mt-1"><a href="/dev/mailbox" className="underline" style={{ color: "var(--accent)" }}>/dev/mailbox</a> で確認メールを確認できます</p>
-          </div>
           <button onClick={() => router.push("/login")} className="btn-outline w-full mt-4 text-sm">
             ログイン画面へ
           </button>

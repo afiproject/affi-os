@@ -31,7 +31,7 @@ export default function LoginPage() {
 
   function handleResend() {
     resendVerificationEmail(email);
-    setError("確認メールを再送しました。/dev/mailbox で確認できます。");
+    setError("確認メールを再送しました。メールを確認してください。");
     setNeedVerify(false);
   }
 
@@ -101,9 +101,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="mt-4 text-center text-[10px]" style={{ color: "var(--muted)" }}>
-          デモ: /dev/mailbox で確認メールを確認できます
-        </p>
       </div>
     </div>
   );

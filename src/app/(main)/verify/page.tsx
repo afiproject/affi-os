@@ -168,21 +168,6 @@ export default function VerifyPage() {
       <h1 className="text-xl font-bold">本人確認</h1>
       <p className="mt-1 text-xs" style={{ color: "var(--muted)" }}>安全な利用のために本人確認をお願いします</p>
 
-      {/* Test support panel (DEMO only) */}
-      {isDemo && (
-        <div className="mt-3 rounded-xl p-3" style={{ backgroundColor: "var(--accent-soft)", border: "1px dashed var(--accent)" }}>
-          <p className="text-xs font-semibold" style={{ color: "var(--accent-soft-text)" }}>テスト支援パネル</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button onClick={setSampleSelfie} className="rounded-lg px-3 py-1.5 text-[11px] font-medium" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
-              サンプル自撮りをセット
-            </button>
-            <button onClick={() => { setSampleId(); setLivenessLeftDone(true); setLivenessRightDone(true); }} className="rounded-lg px-3 py-1.5 text-[11px] font-medium" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
-              サンプル免許証をセット
-            </button>
-          </div>
-          <p className="mt-1 text-[10px]" style={{ color: "var(--muted)" }}>ボタンを押すとサンプル画像が即セットされます</p>
-        </div>
-      )}
 
       {/* Hidden file input */}
       <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
@@ -333,7 +318,7 @@ export default function VerifyPage() {
                         style={{ width: 60, height: 70, borderColor: "var(--muted)", opacity: 0.5 }}>
                         <span className="text-2xl" style={{ opacity: 0.3 }}>🧑</span>
                       </div>
-                      <p className="mt-1 text-[10px]" style={{ color: "var(--muted)" }}>カメラ枠（デモ）</p>
+                      <p className="mt-1 text-[10px]" style={{ color: "var(--muted)" }}>カメラ枠</p>
                     </div>
                   </div>
 

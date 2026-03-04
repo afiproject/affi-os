@@ -167,11 +167,6 @@ export default function ProfilePage() {
               </div>
             ))}
           </div>
-          <div className="mt-2 flex gap-1">
-            {DEMO_PHOTO_PLACEHOLDERS.filter(id => !photos.includes(id)).slice(0, 3).map(id => (
-              <button key={id} onClick={() => addDemoPhoto(id)} className="rounded px-2 py-1 text-[10px]" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-soft-text)" }}>+サンプル</button>
-            ))}
-          </div>
         </div>
       )}
 
@@ -319,7 +314,7 @@ export default function ProfilePage() {
             {TICKET_PACKAGES.map(pkg => (
               <button key={pkg.ticketCount} onClick={() => handlePurchase(pkg)} className="w-full flex items-center justify-between rounded-xl p-3 text-sm hover:opacity-80" style={{ backgroundColor: "var(--accent-soft)" }}>
                 <span className="font-medium">🎫 {pkg.ticketCount}枚</span>
-                <span className="text-xs" style={{ color: "var(--muted)" }}>¥{pkg.priceYen.toLocaleString()}（デモ：即付与）</span>
+                <span className="text-xs" style={{ color: "var(--muted)" }}>¥{pkg.priceYen.toLocaleString()}</span>
               </button>
             ))}
           </div>

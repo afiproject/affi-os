@@ -33,13 +33,6 @@ export default function MainLayout({
 
   return (
     <div className="mx-auto min-h-screen max-w-lg pb-20">
-      {isDemo && (
-        <div className="flex items-center justify-between px-4 py-1.5 text-xs font-medium"
-          style={{ backgroundColor: "var(--accent)", color: "var(--accent-fg)" }}>
-          <span>DEMO MODE</span>
-          <span>🎫 {tickets}枚</span>
-        </div>
-      )}
       <SwipeNav>
         {children}
       </SwipeNav>

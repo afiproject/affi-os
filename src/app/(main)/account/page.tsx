@@ -21,7 +21,7 @@ export default function AccountPage() {
   function handlePasswordChange() {
     if (!session) return;
     sendPasswordResetEmail(session.email);
-    setPwMsg("パスワードリセットメールを送信しました。/dev/mailbox で確認できます。");
+    setPwMsg("パスワードリセットメールを送信しました。メールを確認してください。");
   }
 
   function handleEmailChange() {
@@ -30,7 +30,7 @@ export default function AccountPage() {
     if (result && !result.ok) {
       setEmailMsg(result.error ?? "エラー");
     } else {
-      setEmailMsg("確認メールを送信しました。/dev/mailbox で確認できます。");
+      setEmailMsg("確認メールを送信しました。メールを確認してください。");
       setNewEmail("");
     }
   }
