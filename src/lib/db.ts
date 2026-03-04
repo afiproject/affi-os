@@ -1,9 +1,18 @@
-import { PrismaClient } from "@prisma/client";
+import { IS_DEMO } from "./demo-data";
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
+// DEMO_MODE: Prisma を初期化しない（DB不要）
+let prismaInstance: any = null;
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+if (!IS_DEMO) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { PrismaClient } = require("@prisma/client");
+    const g = globalThis as unknown as { prisma: any };
+    prismaInstance = g.prisma ?? new PrismaClient();
+    if (process.env.NODE_ENV !== "production") g.prisma = prismaInstance;
+  } catch {
+    console.warn("[SLOTY] PrismaClient not available.");
+  }
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+export const prisma = prismaInstance;

@@ -1,11 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { DEMO_USER, DEMO_TICKET_LEDGER, IS_DEMO } from "@/lib/demo-data";
 
 export default function ProfilePage() {
   return (
     <div className="p-4">
       <h1 className="text-xl font-bold">設定</h1>
+
+      {IS_DEMO && (
+        <div className="mt-4 card p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-100 text-lg font-semibold text-primary-700 dark:bg-primary-900 dark:text-primary-300">
+              {DEMO_USER.displayName[0]}
+            </div>
+            <div>
+              <p className="font-semibold">{DEMO_USER.displayName}</p>
+              <p className="text-xs text-[var(--color-text-secondary)]">{DEMO_USER.email}</p>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-[var(--color-border)] pt-3">
+            <span className="text-sm">🎫 チケット残高</span>
+            <span className="text-lg font-bold text-[var(--color-accent)]">{DEMO_USER.ticketBalance}枚</span>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 space-y-6">
         {/* アカウント */}
@@ -50,6 +69,19 @@ export default function ProfilePage() {
             <SettingsRow label="チケット購入" href="/profile/tickets" />
             <SettingsRow label="利用履歴" href="/profile/tickets/history" />
           </div>
+          {IS_DEMO && (
+            <div className="mt-2 card p-3 space-y-2">
+              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">最近の履歴（デモ）</p>
+              {DEMO_TICKET_LEDGER.slice(0, 4).map((entry, i) => (
+                <div key={i} className="flex items-center justify-between text-xs">
+                  <span>{entry.reason}</span>
+                  <span className={entry.delta > 0 ? "text-green-600 font-semibold" : "text-red-500 font-semibold"}>
+                    {entry.delta > 0 ? `+${entry.delta}` : entry.delta}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         {/* その他 */}
