@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginUser, resendVerificationEmail } from "@/lib/demo-store";
+import { loginUser, resendVerificationEmail, getOutbox } from "@/lib/demo-store";
+import { sendEmailFromOutbox } from "@/lib/send-email";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -29,8 +30,14 @@ export default function LoginPage() {
     }
   }
 
-  function handleResend() {
+  async function handleResend() {
     resendVerificationEmail(email);
+    // Send real email via API
+    const outbox = getOutbox();
+    const mail = outbox.find(m => m.to === email && m.subject.includes("確認"));
+    if (mail) {
+      await sendEmailFromOutbox(mail.to, mail.subject, mail.body, mail.links);
+    }
     setError("確認メールを再送しました。メールを確認してください。");
     setNeedVerify(false);
   }

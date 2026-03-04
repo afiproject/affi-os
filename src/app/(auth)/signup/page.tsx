@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signupUser } from "@/lib/demo-store";
+import { signupUser, getOutbox } from "@/lib/demo-store";
+import { sendEmailFromOutbox } from "@/lib/send-email";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
 
-  function handleSignup() {
+  async function handleSignup() {
     setError("");
     if (!displayName.trim()) { setError("表示名を入力してください"); return; }
     if (!email.trim()) { setError("メールアドレスを入力してください"); return; }
@@ -26,6 +27,12 @@ export default function SignupPage() {
     setLoading(true);
     const result = signupUser(email, password, displayName);
     if (result.ok) {
+      // Send real email via API
+      const outbox = getOutbox();
+      const mail = outbox.find(m => m.to === email && m.subject.includes("確認"));
+      if (mail) {
+        await sendEmailFromOutbox(mail.to, mail.subject, mail.body, mail.links);
+      }
       setSent(true);
     } else {
       setError(result.error ?? "登録に失敗しました");

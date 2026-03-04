@@ -3,8 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  getAuthSession, logoutUser, sendPasswordResetEmail, sendEmailChangeEmail,
+  getAuthSession, logoutUser, sendPasswordResetEmail, sendEmailChangeEmail, getOutbox,
 } from "@/lib/demo-store";
+import { sendEmailFromOutbox } from "@/lib/send-email";
 
 export default function AccountPage() {
   const router = useRouter();
@@ -18,18 +19,30 @@ export default function AccountPage() {
     if (s) setSession({ userId: s.userId, email: s.email });
   }, []);
 
-  function handlePasswordChange() {
+  async function handlePasswordChange() {
     if (!session) return;
     sendPasswordResetEmail(session.email);
+    // Send real email via API
+    const outbox = getOutbox();
+    const mail = outbox.find(m => m.to === session.email && m.subject.includes("リセット"));
+    if (mail) {
+      await sendEmailFromOutbox(mail.to, mail.subject, mail.body, mail.links);
+    }
     setPwMsg("パスワードリセットメールを送信しました。メールを確認してください。");
   }
 
-  function handleEmailChange() {
+  async function handleEmailChange() {
     if (!session || !newEmail.trim()) return;
     const result = sendEmailChangeEmail(session.userId, session.email, newEmail);
     if (result && !result.ok) {
       setEmailMsg(result.error ?? "エラー");
     } else {
+      // Send real email via API
+      const outbox = getOutbox();
+      const mail = outbox.find(m => m.to === newEmail && m.subject.includes("変更"));
+      if (mail) {
+        await sendEmailFromOutbox(mail.to, mail.subject, mail.body, mail.links);
+      }
       setEmailMsg("確認メールを送信しました。メールを確認してください。");
       setNewEmail("");
     }

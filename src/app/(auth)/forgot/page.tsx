@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { sendPasswordResetEmail } from "@/lib/demo-store";
+import { sendPasswordResetEmail, getOutbox } from "@/lib/demo-store";
+import { sendEmailFromOutbox } from "@/lib/send-email";
 
 export default function ForgotPage() {
   const router = useRouter();
@@ -10,10 +11,16 @@ export default function ForgotPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
 
-  function handleReset() {
+  async function handleReset() {
     setError("");
     if (!email.trim()) { setError("メールアドレスを入力してください"); return; }
     sendPasswordResetEmail(email);
+    // Send real email via API
+    const outbox = getOutbox();
+    const mail = outbox.find(m => m.to === email && m.subject.includes("リセット"));
+    if (mail) {
+      await sendEmailFromOutbox(mail.to, mail.subject, mail.body, mail.links);
+    }
     setSent(true);
   }
 
