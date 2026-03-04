@@ -4,32 +4,43 @@
 
 @layer base {
   :root {
+    /* ── Layout ── */
     --bg: #ffffff;
     --card: #ffffff;
-    --text: #1a1a2e;
-    --muted: #6b7280;
-    --border: #e5e7eb;
-    --accent: #8b5cf6;
-    --accent-hover: #7c3aed;
+    --text: #1e1e2f;
+    --muted: #7c7f8a;
+    --border: #ebebef;
+
+    /* ── Accent: 薄紫 (lavender) ── */
+    --accent: #9b8afb;
+    --accent-hover: #8778e8;
+    --accent-active: #7566d5;
     --accent-fg: #ffffff;
-    --accent-soft: #f5f3ff;
-    --accent-soft-text: #6d28d9;
-    --success: #16a34a;
-    --danger: #dc2626;
+    --accent-soft: #f3f0ff;
+    --accent-soft-text: #6e5dcc;
+    --ring: rgba(155, 138, 251, 0.45);
+
+    /* ── Semantic ── */
+    --success: #34c77b;
+    --danger: #e8453c;
   }
 
   .dark {
-    --bg: #0f0f1a;
-    --card: #1a1a2e;
-    --text: #f0f0f5;
-    --muted: #9ca3af;
-    --border: #2d2d44;
-    --accent: #a78bfa;
-    --accent-hover: #c4b5fd;
-    --accent-fg: #0f0f1a;
-    --accent-soft: rgba(139, 92, 246, 0.15);
-    --accent-soft-text: #c4b5fd;
-    --success: #22c55e;
+    --bg: #101018;
+    --card: #1a1a28;
+    --text: #eeeef4;
+    --muted: #8e8fa0;
+    --border: #2a2a3c;
+
+    --accent: #b4a4fc;
+    --accent-hover: #c8bcfd;
+    --accent-active: #dbd3fe;
+    --accent-fg: #101018;
+    --accent-soft: rgba(155, 138, 251, 0.12);
+    --accent-soft-text: #c8bcfd;
+    --ring: rgba(180, 164, 252, 0.40);
+
+    --success: #4ade80;
     --danger: #f87171;
   }
 
@@ -38,7 +49,7 @@
     color: var(--text);
   }
 
-  /* Legacy aliases */
+  /* Legacy aliases for any remaining var(--color-*) refs */
   :root {
     --color-bg: var(--bg);
     --color-card: var(--card);
@@ -51,18 +62,25 @@
 }
 
 @layer components {
+  /* ── Primary button ── */
   .btn-primary {
-    @apply rounded-xl px-6 py-3 font-semibold transition-colors;
-    background-color: var(--accent);
+    @apply rounded-xl px-6 py-3 font-semibold transition-all;
+    background: linear-gradient(135deg, var(--accent), var(--accent-hover));
     color: var(--accent-fg);
+    box-shadow: 0 2px 8px var(--ring);
   }
   .btn-primary:hover {
-    background-color: var(--accent-hover);
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent-active));
+  }
+  .btn-primary:active {
+    transform: scale(0.98);
   }
   .btn-primary:disabled {
     @apply opacity-40 cursor-not-allowed;
+    box-shadow: none;
   }
 
+  /* ── Outline button ── */
   .btn-outline {
     @apply rounded-xl px-4 py-2 text-sm font-medium transition-colors;
     border: 1px solid var(--border);
@@ -74,35 +92,44 @@
     border-color: var(--accent);
   }
 
+  /* ── Card ── */
   .card {
-    @apply rounded-2xl p-4 shadow-sm;
+    @apply rounded-2xl p-4;
     background-color: var(--card);
     border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   }
 
+  /* ── Tabs ── */
   .tab-active {
     @apply border-b-2 font-semibold;
     border-color: var(--accent);
     color: var(--accent);
   }
-
   .tab-inactive {
     @apply border-b-2 border-transparent;
     color: var(--muted);
   }
 
+  /* ── Chips ── */
   .chip {
     @apply rounded-full px-3 py-1.5 text-xs font-medium transition-colors;
   }
   .chip-active {
     background-color: var(--accent);
     color: var(--accent-fg);
+    box-shadow: 0 1px 4px var(--ring);
   }
   .chip-inactive {
-    border: 1px solid var(--border);
-    color: var(--muted);
+    background-color: var(--accent-soft);
+    color: var(--accent-soft-text);
+    border: 1px solid transparent;
+  }
+  .chip-inactive:hover {
+    border-color: var(--accent);
   }
 
+  /* ── Input ── */
   .input {
     @apply w-full rounded-xl p-3 text-sm;
     background-color: var(--bg);
@@ -110,7 +137,8 @@
     color: var(--text);
   }
   .input:focus {
-    outline: 2px solid var(--accent);
-    outline-offset: -1px;
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--ring);
   }
 }

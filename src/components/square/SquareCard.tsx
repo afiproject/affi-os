@@ -44,7 +44,8 @@ export default function SquareCard({
     <div className="card">
       {/* ヘッダー */}
       <div className="flex items-center gap-2">
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-sm dark:bg-primary-900">
+        <div className="flex h-8 w-8 items-center justify-center rounded-full text-sm"
+          style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-soft-text)" }}>
           {user.avatarUrl ? (
             <img
               src={user.avatarUrl}
@@ -71,12 +72,14 @@ export default function SquareCard({
         {tags.map((tag) => (
           <span
             key={tag}
-            className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
+            className="rounded-full px-2 py-0.5 text-xs"
+            style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-soft-text)" }}
           >
             #{TAG_LABELS[tag] ?? tag}
           </span>
         ))}
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+        <span className="rounded-full px-2 py-0.5 text-xs"
+          style={{ backgroundColor: "var(--bg)", color: "var(--muted)", border: "1px solid var(--border)" }}>
           {preferredMode === "call"
             ? "📞 通話"
             : preferredMode === "in_person"
