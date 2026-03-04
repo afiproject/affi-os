@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #ffffff;
+    --color-card: #f8f8fc;
+    --color-text-primary: #1a1a2e;
+    --color-text-secondary: #6b7280;
+    --color-accent: #8b5cf6;
+    --color-accent-hover: #7c3aed;
+    --color-border: #e5e7eb;
+  }
+
+  .dark {
+    --color-bg: #1a1a2e;
+    --color-card: #252540;
+    --color-text-primary: #f0f0f5;
+    --color-text-secondary: #9ca3af;
+    --color-accent: #a78bfa;
+    --color-accent-hover: #8b5cf6;
+    --color-border: #374151;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply rounded-xl px-6 py-3 font-semibold text-white transition-colors;
+    background-color: var(--color-accent);
+  }
+  .btn-primary:hover {
+    background-color: var(--color-accent-hover);
+  }
+
+  .card {
+    @apply rounded-2xl p-4 shadow-sm;
+    background-color: var(--color-card);
+    border: 1px solid var(--color-border);
+  }
+
+  .tab-active {
+    @apply border-b-2 font-semibold;
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  .tab-inactive {
+    @apply border-b-2 border-transparent;
+    color: var(--color-text-secondary);
+  }
+}
