@@ -420,6 +420,222 @@ export function calcFreeMinutes(): { freeMinutes: number; nextEventTitle: string
   };
 }
 
+// --- KYC (本人確認) ---
+export type KycLevel = 0 | 1 | 2;
+export type KycStatus = "none" | "pending_ai" | "pending_review" | "approved" | "rejected" | "resubmit_required";
+export type KycRequest = {
+  id: string;
+  userId: string;
+  displayName: string;
+  level: KycLevel;
+  status: KycStatus;
+  selfieSubmitted: boolean;
+  idDocSubmitted: boolean;
+  livenessSubmitted: boolean;
+  aiScore: number | null;
+  reviewerNote: string;
+  createdAt: string;
+  updatedAt: string;
+};
+export type KycAuditEntry = {
+  id: string;
+  kycRequestId: string;
+  action: string;
+  actor: string;
+  note: string;
+  createdAt: string;
+};
+
+export function getKycRequests(): KycRequest[] {
+  return load<KycRequest[]>("kyc_requests", []);
+}
+export function getMyKycRequest(): KycRequest | null {
+  return getKycRequests().find(r => r.userId === "demo-user-1") ?? null;
+}
+export function getKycLevel(): KycLevel {
+  const req = getMyKycRequest();
+  if (!req || req.status !== "approved") return 0;
+  return req.level;
+}
+export function submitKycRequest(level: KycLevel) {
+  const reqs = getKycRequests().filter(r => r.userId !== "demo-user-1");
+  const req: KycRequest = {
+    id: `kyc-${Date.now()}`,
+    userId: "demo-user-1",
+    displayName: "あなた（デモ）",
+    level,
+    status: "pending_ai",
+    selfieSubmitted: true,
+    idDocSubmitted: level >= 2,
+    livenessSubmitted: level >= 2,
+    aiScore: null,
+    reviewerNote: "",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  reqs.unshift(req);
+  save("kyc_requests", reqs);
+  addKycAudit(req.id, "submitted", "demo-user-1", `レベル${level}申請`);
+}
+export function runKycAiScoring(reqId: string) {
+  const updated = getKycRequests();
+  const r = updated.find(x => x.id === reqId);
+  if (r && r.status === "pending_ai") {
+    r.aiScore = 75 + Math.floor(Math.random() * 20);
+    r.status = "pending_review";
+    r.updatedAt = new Date().toISOString();
+    save("kyc_requests", updated);
+    addKycAudit(reqId, "ai_scored", "SYSTEM", `AI判定スコア: ${r.aiScore}`);
+  }
+}
+export function updateKycRequest(id: string, updates: Partial<KycRequest>) {
+  const reqs = getKycRequests();
+  const r = reqs.find(x => x.id === id);
+  if (r) { Object.assign(r, updates, { updatedAt: new Date().toISOString() }); }
+  save("kyc_requests", reqs);
+}
+export function getKycAuditLog(): KycAuditEntry[] {
+  return load<KycAuditEntry[]>("kyc_audit_log", []);
+}
+export function addKycAudit(kycRequestId: string, action: string, actor: string, note: string) {
+  const log = getKycAuditLog();
+  log.unshift({ id: `ka-${Date.now()}`, kycRequestId, action, actor, note, createdAt: new Date().toISOString() });
+  save("kyc_audit_log", log);
+}
+
+// --- Rooms (チャット/通話) ---
+export type DemoRoom = {
+  id: string;
+  bookingId: string;
+  participants: { id: string; displayName: string }[];
+  startAt: string;
+  endAt: string;
+  extended: boolean;
+  createdAt: string;
+};
+export type DemoMessage = {
+  id: string;
+  roomId: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  masked: boolean;
+  createdAt: string;
+};
+export type DemoCallLog = {
+  id: string;
+  roomId: string;
+  type: "voice" | "video";
+  startedAt: string;
+  endedAt: string | null;
+  participants: string[];
+};
+export type DemoReport = {
+  id: string;
+  roomId: string;
+  reporterId: string;
+  targetId: string;
+  reason: string;
+  createdAt: string;
+};
+export type DemoBlock = {
+  userId: string;
+  blockedAt: string;
+};
+
+export function getRooms(): DemoRoom[] {
+  return load<DemoRoom[]>("rooms", []);
+}
+export function getRoom(roomId: string): DemoRoom | null {
+  return getRooms().find(r => r.id === roomId) ?? null;
+}
+export function createRoom(bookingId: string, participants: { id: string; displayName: string }[], startAt: string, endAt: string): DemoRoom {
+  const rooms = getRooms();
+  const existing = rooms.find(r => r.bookingId === bookingId);
+  if (existing) return existing;
+  const room: DemoRoom = {
+    id: `room-${Date.now()}`,
+    bookingId,
+    participants,
+    startAt,
+    endAt,
+    extended: false,
+    createdAt: new Date().toISOString(),
+  };
+  rooms.unshift(room);
+  save("rooms", rooms);
+  return room;
+}
+export function extendRoom(roomId: string, extraMinutes: number) {
+  const rooms = getRooms();
+  const r = rooms.find(x => x.id === roomId);
+  if (r) {
+    r.endAt = new Date(new Date(r.endAt).getTime() + extraMinutes * 60_000).toISOString();
+    r.extended = true;
+  }
+  save("rooms", rooms);
+}
+
+export function getMessages(roomId: string): DemoMessage[] {
+  return load<DemoMessage[]>(`messages_${roomId}`, []);
+}
+const CONTACT_PATTERN = /(?:\d{3}[-\s]?\d{4}[-\s]?\d{4}|@[a-zA-Z0-9_.]+|LINE|カカオ|instagram|twitter|discord)/i;
+export function addMessage(roomId: string, senderId: string, senderName: string, text: string): DemoMessage {
+  const msgs = getMessages(roomId);
+  const masked = CONTACT_PATTERN.test(text);
+  const msg: DemoMessage = {
+    id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    roomId, senderId, senderName,
+    text: masked ? "⚠️ 外部連絡先の共有は禁止されています" : text,
+    masked,
+    createdAt: new Date().toISOString(),
+  };
+  msgs.push(msg);
+  save(`messages_${roomId}`, msgs);
+  return msg;
+}
+
+export function getCallLogs(roomId: string): DemoCallLog[] {
+  return load<DemoCallLog[]>(`calls_${roomId}`, []);
+}
+export function addCallLog(roomId: string, type: "voice" | "video"): DemoCallLog {
+  const logs = getCallLogs(roomId);
+  const log: DemoCallLog = {
+    id: `call-${Date.now()}`, roomId, type,
+    startedAt: new Date().toISOString(), endedAt: null,
+    participants: ["demo-user-1"],
+  };
+  logs.push(log);
+  save(`calls_${roomId}`, logs);
+  return log;
+}
+export function endCallLog(roomId: string, callId: string) {
+  const logs = getCallLogs(roomId);
+  const log = logs.find(l => l.id === callId);
+  if (log) log.endedAt = new Date().toISOString();
+  save(`calls_${roomId}`, logs);
+}
+
+export function getReports(): DemoReport[] {
+  return load<DemoReport[]>("reports", []);
+}
+export function addReport(roomId: string, targetId: string, reason: string) {
+  const reports = getReports();
+  reports.unshift({ id: `rpt-${Date.now()}`, roomId, reporterId: "demo-user-1", targetId, reason, createdAt: new Date().toISOString() });
+  save("reports", reports);
+}
+
+export function getBlocks(): DemoBlock[] {
+  return load<DemoBlock[]>("blocks", []);
+}
+export function addBlock(userId: string) {
+  const blocks = getBlocks();
+  if (!blocks.find(b => b.userId === userId)) {
+    blocks.push({ userId, blockedAt: new Date().toISOString() });
+    save("blocks", blocks);
+  }
+}
+
 // ===== Conflict check =====
 export function checkConflict(startAt: string, endAt: string): DemoEvent | null {
   const events = getPrivateEvents();

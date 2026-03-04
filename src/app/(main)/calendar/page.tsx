@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import SwipeSheet from "@/components/shared/SwipeSheet";
 import {
   getPrivateEvents,
   addPrivateEvent,
@@ -568,92 +569,94 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {/* Add event modal */}
-      {showAdd && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setShowAdd(false)} />
-          <div className="relative w-full max-w-lg rounded-t-2xl p-5 pb-8 max-h-[85vh] overflow-y-auto" style={{ backgroundColor: "var(--card)" }}>
-            <div className="mx-auto mb-4 h-1 w-10 rounded-full" style={{ backgroundColor: "var(--border)" }} />
-            <h3 className="text-lg font-bold">予定を追加</h3>
-            <div className="mt-4 space-y-3">
-              <div>
-                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>タイトル</label>
-                <input className="input mt-1" placeholder="例: 仕事、ランチ" value={title} onChange={(e) => setTitle(e.target.value)} />
-              </div>
+      {/* Add event modal (SwipeSheet) */}
+      <SwipeSheet
+        open={showAdd}
+        onClose={() => setShowAdd(false)}
+        title="予定を追加"
+        footer={
+          <div className="flex gap-2">
+            <button onClick={() => { setShowAdd(false); resetForm(); }} className="btn-outline flex-1 text-sm">キャンセル</button>
+            <button onClick={handleAdd} className="btn-primary flex-1 text-sm">追加する</button>
+          </div>
+        }
+      >
+        <div className="space-y-3 pb-2">
+          <div>
+            <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>タイトル</label>
+            <input className="input mt-1" placeholder="例: 仕事、ランチ" value={title} onChange={(e) => setTitle(e.target.value)} />
+          </div>
 
-              <div>
-                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>種別</label>
-                <div className="mt-1 flex flex-wrap gap-1.5">
-                  {(["busy", "free", "private", "buffer"] as EventKind[]).map((k) => (
-                    <button key={k} onClick={() => setKind(k)}
-                      className={`chip text-[11px] ${k === kind ? "chip-active" : "chip-inactive"}`}>
-                      {KIND_LABELS[k]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>日付</label>
-                <input type="date" className="input mt-1" value={date} onChange={(e) => setDate(e.target.value)} />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>開始</label>
-                  <input type="time" className="input mt-1" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                </div>
-                <div>
-                  <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>終了</label>
-                  <input type="time" className="input mt-1" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>バッファ（移動時間等）</label>
-                <div className="mt-1 grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>前</span>
-                    <select className="input mt-0.5 text-sm" value={bufferBefore} onChange={(e) => setBufferBefore(Number(e.target.value))}>
-                      {[0, 5, 10, 15, 30].map((m) => <option key={m} value={m}>{m}分</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>後</span>
-                    <select className="input mt-0.5 text-sm" value={bufferAfter} onChange={(e) => setBufferAfter(Number(e.target.value))}>
-                      {[0, 5, 10, 15, 30].map((m) => <option key={m} value={m}>{m}分</option>)}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between rounded-xl p-3 text-sm"
-                style={{ backgroundColor: "var(--accent-soft)" }}>
-                <span style={{ color: "var(--accent-soft-text)" }}>すれ違い対象外</span>
-                <button
-                  onClick={() => setNearbyExclude(!nearbyExclude)}
-                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
-                  style={{ backgroundColor: nearbyExclude ? "var(--accent)" : "#d1d5db" }}
-                >
-                  <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
-                    style={{ transform: nearbyExclude ? "translateX(1.375rem)" : "translateX(0.25rem)" }} />
+          <div>
+            <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>種別</label>
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {(["busy", "free", "private", "buffer"] as EventKind[]).map((k) => (
+                <button key={k} onClick={() => setKind(k)}
+                  className={`chip text-[11px] ${k === kind ? "chip-active" : "chip-inactive"}`}>
+                  {KIND_LABELS[k]}
                 </button>
-              </div>
+              ))}
+            </div>
+          </div>
 
+          <div>
+            <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>日付</label>
+            <input type="date" className="input mt-1" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>開始</label>
+              <input type="time" className="input mt-1" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>終了</label>
+              <input type="time" className="input mt-1" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>バッファ（移動時間等）</label>
+            <div className="mt-1 grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>公開範囲</label>
-                <select className="input mt-1" value={visibility} onChange={(e) => setVisibility(e.target.value)}>
-                  {VISIBILITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                <span className="text-[10px]" style={{ color: "var(--muted)" }}>前</span>
+                <select className="input mt-0.5 text-sm" value={bufferBefore} onChange={(e) => setBufferBefore(Number(e.target.value))}>
+                  {[0, 5, 10, 15, 30].map((m) => <option key={m} value={m}>{m}分</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>メモ（任意）</label>
-                <input className="input mt-1" placeholder="メモ" value={memo} onChange={(e) => setMemo(e.target.value)} />
+                <span className="text-[10px]" style={{ color: "var(--muted)" }}>後</span>
+                <select className="input mt-0.5 text-sm" value={bufferAfter} onChange={(e) => setBufferAfter(Number(e.target.value))}>
+                  {[0, 5, 10, 15, 30].map((m) => <option key={m} value={m}>{m}分</option>)}
+                </select>
               </div>
-              <button onClick={handleAdd} className="btn-primary w-full text-sm">追加する</button>
             </div>
           </div>
+
+          <div className="flex items-center justify-between rounded-xl p-3 text-sm"
+            style={{ backgroundColor: "var(--accent-soft)" }}>
+            <span style={{ color: "var(--accent-soft-text)" }}>すれ違い対象外</span>
+            <button
+              onClick={() => setNearbyExclude(!nearbyExclude)}
+              className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+              style={{ backgroundColor: nearbyExclude ? "var(--accent)" : "#d1d5db" }}
+            >
+              <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                style={{ transform: nearbyExclude ? "translateX(1.375rem)" : "translateX(0.25rem)" }} />
+            </button>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>公開範囲</label>
+            <select className="input mt-1" value={visibility} onChange={(e) => setVisibility(e.target.value)}>
+              {VISIBILITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>メモ（任意）</label>
+            <input className="input mt-1" placeholder="メモ" value={memo} onChange={(e) => setMemo(e.target.value)} />
+          </div>
         </div>
-      )}
+      </SwipeSheet>
     </div>
   );
 }

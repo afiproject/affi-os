@@ -1,6 +1,7 @@
 "use client";
 
 import BottomNav from "@/components/shared/BottomNav";
+import SwipeNav from "@/components/shared/SwipeNav";
 import { getTicketBalance } from "@/lib/demo-store";
 import { useEffect, useState } from "react";
 
@@ -27,7 +28,9 @@ export default function MainLayout({
           <span>🎫 {tickets}枚</span>
         </div>
       )}
-      {children}
+      <SwipeNav>
+        {children}
+      </SwipeNav>
       <BottomNav />
     </div>
   );

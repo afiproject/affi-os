@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useState, useEffect, useRef } from "react";
-import { getTicketBalance, getTicketLedger, addTicketEntry, getProfile, saveProfile, hasPhotos } from "@/lib/demo-store";
-import type { DemoProfile } from "@/lib/demo-store";
+import { getTicketBalance, getTicketLedger, addTicketEntry, getProfile, saveProfile, hasPhotos, getMyKycRequest, submitKycRequest, getKycLevel, runKycAiScoring } from "@/lib/demo-store";
+import type { DemoProfile, KycRequest } from "@/lib/demo-store";
 import {
   DEMO_USER, DEMO_PHOTO_PLACEHOLDERS,
   PURPOSE_TAG_OPTIONS, HOBBY_TAG_OPTIONS, JOB_OPTIONS,
@@ -20,12 +20,16 @@ export default function ProfilePage() {
   const [showPhotos, setShowPhotos] = useState(false);
   const [photoIdx, setPhotoIdx] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [kycReq, setKycReq] = useState<KycRequest | null>(null);
+  const [kycLevel, setKycLevel] = useState(0);
 
   useEffect(() => {
     setMounted(true);
     setTickets(getTicketBalance());
     setLedger(getTicketLedger());
     setProfile(getProfile());
+    setKycReq(getMyKycRequest());
+    setKycLevel(getKycLevel());
   }, []);
 
   if (!profile) return null;
@@ -223,6 +227,43 @@ export default function ProfilePage() {
       </section>
 
       <div className="mt-6 h-px" style={{ backgroundColor: "var(--border)" }} />
+
+      {/* KYC Section */}
+      <section className="mt-6">
+        <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>本人確認</h2>
+        <div className="mt-2 card p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">確認レベル</p>
+              <p className="text-xs" style={{ color: "var(--muted)" }}>
+                {kycLevel === 0 ? "Lv0 未確認（閲覧のみ）" : kycLevel === 1 ? "Lv1 ライト（通話OK）" : "Lv2 強（対面OK）"}
+              </p>
+            </div>
+            <span className="text-2xl">{kycLevel === 0 ? "🔒" : kycLevel === 1 ? "🔓" : "✅"}</span>
+          </div>
+          {kycReq && kycReq.status !== "approved" && (
+            <div className="mt-2 rounded-lg p-2 text-xs"
+              style={{ backgroundColor: kycReq.status === "rejected" ? "rgba(220,38,38,0.08)" : "rgba(234,179,8,0.1)",
+                color: kycReq.status === "rejected" ? "var(--danger)" : "#b45309" }}>
+              {kycReq.status === "pending_ai" && "🤖 AI判定中..."}
+              {kycReq.status === "pending_review" && `📋 人間レビュー待ち（AIスコア: ${kycReq.aiScore}）`}
+              {kycReq.status === "rejected" && `❌ 却下: ${kycReq.reviewerNote || "理由なし"}`}
+              {kycReq.status === "resubmit_required" && `🔄 再提出要求: ${kycReq.reviewerNote || "書類を再提出してください"}`}
+            </div>
+          )}
+          {(!kycReq || kycReq.status === "rejected" || kycReq.status === "resubmit_required") && (
+            <div className="mt-3 space-y-2">
+              <button onClick={() => { submitKycRequest(1); setKycReq(getMyKycRequest()); setTimeout(() => { runKycAiScoring(getMyKycRequest()?.id ?? ""); setKycReq(getMyKycRequest()); }, 2000); }}
+                className="btn-outline w-full text-xs !py-2">Lv1 ライト申請（セルフィーのみ）</button>
+              <button onClick={() => { submitKycRequest(2); setKycReq(getMyKycRequest()); setTimeout(() => { runKycAiScoring(getMyKycRequest()?.id ?? ""); setKycReq(getMyKycRequest()); }, 2000); }}
+                className="btn-primary w-full text-xs !py-2">Lv2 強 申請（身分証+ライブネス）</button>
+            </div>
+          )}
+          <Link href="/admin/kyc" className="mt-2 block text-center text-[10px]" style={{ color: "var(--accent)" }}>
+            管理者：審査キューを開く →
+          </Link>
+        </div>
+      </section>
 
       <div className="mt-6 space-y-6">
         <section>

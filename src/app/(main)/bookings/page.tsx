@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getBookings, updateBookingStatus } from "@/lib/demo-store";
+import { getBookings, updateBookingStatus, createRoom, getRooms } from "@/lib/demo-store";
 import type { DemoBooking } from "@/lib/demo-store";
-import { CATEGORY_LABELS } from "@/lib/demo-data";
+import { CATEGORY_LABELS, DEMO_USER } from "@/lib/demo-data";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   confirmed: { label: "確定", color: "var(--success)" },
@@ -24,13 +24,29 @@ export default function BookingsPage() {
   const past = bookings.filter((b) => b.status === "completed" || b.status === "cancelled");
   const shown = tab === "active" ? active : past;
 
-  function handleComplete(id: string) {
-    updateBookingStatus(id, "completed");
-    setBookings(getBookings());
+  function handleComplete(id: string) { updateBookingStatus(id, "completed"); setBookings(getBookings()); }
+  function handleCancel(id: string) { updateBookingStatus(id, "cancelled"); setBookings(getBookings()); }
+
+  function handleOpenRoom(b: DemoBooking) {
+    const room = createRoom(
+      b.id,
+      [
+        { id: DEMO_USER.id, displayName: DEMO_USER.displayName },
+        { id: b.slot.seller.id, displayName: b.slot.seller.displayName },
+      ],
+      b.slot.startAt,
+      b.slot.endAt
+    );
+    router.push(`/rooms/${room.id}`);
   }
-  function handleCancel(id: string) {
-    updateBookingStatus(id, "cancelled");
-    setBookings(getBookings());
+
+  // Check if booking is within chat window (5min before start to end + 24h)
+  function canOpenRoom(b: DemoBooking): boolean {
+    if (b.status !== "confirmed") return false;
+    const now = Date.now();
+    const start = new Date(b.slot.startAt).getTime() - 5 * 60_000;
+    const end = new Date(b.slot.endAt).getTime() + 24 * 3600_000;
+    return now >= start && now <= end;
   }
 
   return (
@@ -41,8 +57,7 @@ export default function BookingsPage() {
         {(["active", "past"] as const).map((t) => (
           <button key={t}
             className={`flex-1 pb-2 text-center text-sm ${tab === t ? "tab-active" : "tab-inactive"}`}
-            onClick={() => setTab(t)}
-          >
+            onClick={() => setTab(t)}>
             {t === "active" ? `進行中 (${active.length})` : `過去 (${past.length})`}
           </button>
         ))}
@@ -55,14 +70,13 @@ export default function BookingsPage() {
             <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
               {tab === "active" ? "進行中の予約はありません" : "過去の予約はありません"}
             </p>
-            {tab === "active" && (
-              <button onClick={() => router.push("/market")} className="btn-primary mt-3 text-sm">マーケットで探す</button>
-            )}
+            {tab === "active" && <button onClick={() => router.push("/market")} className="btn-primary mt-3 text-sm">マーケットで探す</button>}
           </div>
         )}
         {shown.map((b) => {
           const st = STATUS_LABELS[b.status];
           const start = new Date(b.slot.startAt);
+          const roomReady = canOpenRoom(b);
           return (
             <div key={b.id} className="card p-4">
               <div className="flex items-center justify-between">
@@ -77,7 +91,19 @@ export default function BookingsPage() {
                 <p>👤 {b.slot.seller.displayName}</p>
                 <p>🎫 {b.slot.priceYen}枚</p>
               </div>
-              {b.status === "confirmed" && (
+
+              {/* Chat / Call / Video buttons */}
+              {roomReady && (
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => handleOpenRoom(b)} className="btn-primary flex-1 text-xs !py-2">💬 チャット</button>
+                  <button onClick={() => { const room = createRoom(b.id, [{ id: DEMO_USER.id, displayName: DEMO_USER.displayName }, { id: b.slot.seller.id, displayName: b.slot.seller.displayName }], b.slot.startAt, b.slot.endAt); router.push(`/rooms/${room.id}/call`); }}
+                    className="btn-outline flex-1 text-xs !py-2">📞 音声</button>
+                  <button onClick={() => { const room = createRoom(b.id, [{ id: DEMO_USER.id, displayName: DEMO_USER.displayName }, { id: b.slot.seller.id, displayName: b.slot.seller.displayName }], b.slot.startAt, b.slot.endAt); router.push(`/rooms/${room.id}/video`); }}
+                    className="btn-outline flex-1 text-xs !py-2">📹 ビデオ</button>
+                </div>
+              )}
+
+              {b.status === "confirmed" && !roomReady && (
                 <div className="mt-3 flex gap-2">
                   <button onClick={() => handleComplete(b.id)} className="btn-primary flex-1 text-xs !py-2">完了にする</button>
                   <button onClick={() => handleCancel(b.id)} className="btn-outline flex-1 text-xs" style={{ color: "var(--danger)" }}>キャンセル</button>
