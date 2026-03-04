@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { consumeTickets, addPost, getTicketBalance } from "@/lib/demo-store";
+import { consumeTickets, addPost, getTicketBalance, hasPhotos } from "@/lib/demo-store";
 import { DEMO_USER } from "@/lib/demo-data";
 
 const TAG_OPTIONS = [
@@ -31,6 +31,10 @@ export default function NewPostPage() {
 
   const handlePost = () => {
     setError("");
+    if (!hasPhotos()) {
+      setError("写真を1枚以上登録してから投稿してください（設定→プロフィール写真）");
+      return;
+    }
     if (!text.trim() || tags.length === 0) return;
     if (!consumeTickets(2, "広場投稿")) {
       setError("チケットが不足しています（2🎫必要）");

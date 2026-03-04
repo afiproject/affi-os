@@ -7,7 +7,7 @@ import {
   removePrivateEvent,
   getBookings,
 } from "@/lib/demo-store";
-import type { DemoEvent, DemoBooking } from "@/lib/demo-store";
+import type { DemoEvent, DemoBooking, EventKind } from "@/lib/demo-store";
 import { CATEGORY_LABELS } from "@/lib/demo-data";
 
 /* ── helpers ── */
@@ -34,14 +34,31 @@ function timeStr(iso: string) {
   });
 }
 
+const KIND_LABELS: Record<EventKind, string> = {
+  busy: "🔴 予定あり",
+  free: "🟢 話しかけOK",
+  private: "🔒 非公開",
+  buffer: "⏸️ バッファ",
+};
+const KIND_COLORS: Record<EventKind, string> = {
+  busy: "var(--danger)",
+  free: "var(--success)",
+  private: "var(--muted)",
+  buffer: "#f59e0b",
+};
+
 type CalendarItem = {
   id: string;
   title: string;
   startAt: string;
   endAt: string;
-  kind: "event" | "booking";
+  itemKind: "event" | "booking";
+  eventKind?: EventKind;
   visibility?: string;
   memo?: string;
+  nearbyExclude?: boolean;
+  bufferBefore?: number;
+  bufferAfter?: number;
 };
 
 const VISIBILITY_OPTIONS = [
@@ -66,6 +83,10 @@ export default function CalendarPage() {
   const [endTime, setEndTime] = useState("11:00");
   const [visibility, setVisibility] = useState("busy_only");
   const [memo, setMemo] = useState("");
+  const [kind, setKind] = useState<EventKind>("busy");
+  const [nearbyExclude, setNearbyExclude] = useState(true);
+  const [bufferBefore, setBufferBefore] = useState(10);
+  const [bufferAfter, setBufferAfter] = useState(10);
 
   const reload = useCallback(() => {
     setEvents(getPrivateEvents());
@@ -83,9 +104,13 @@ export default function CalendarPage() {
       title: e.title,
       startAt: e.startAt,
       endAt: e.endAt,
-      kind: "event" as const,
+      itemKind: "event" as const,
+      eventKind: e.kind ?? ("busy" as EventKind),
       visibility: e.visibility,
       memo: e.memo,
+      nearbyExclude: e.nearbyExclude ?? true,
+      bufferBefore: e.bufferBefore ?? 10,
+      bufferAfter: e.bufferAfter ?? 10,
     })),
     ...bookings
       .filter((b) => b.status !== "cancelled")
@@ -94,7 +119,7 @@ export default function CalendarPage() {
         title: CATEGORY_LABELS[b.slot.category] ?? b.slot.category,
         startAt: b.slot.startAt,
         endAt: b.slot.endAt,
-        kind: "booking" as const,
+        itemKind: "booking" as const,
       })),
   ];
 
@@ -104,7 +129,7 @@ export default function CalendarPage() {
 
   /* calendar grid */
   const firstDay = startOfMonth(current);
-  const startWeekday = firstDay.getDay(); // 0=Sun
+  const startWeekday = firstDay.getDay();
   const total = daysInMonth(current);
   const cells: (number | null)[] = [];
   for (let i = 0; i < startWeekday; i++) cells.push(null);
@@ -122,6 +147,16 @@ export default function CalendarPage() {
     setSelected(null);
   }
 
+  function resetForm() {
+    setTitle("");
+    setMemo("");
+    setKind("busy");
+    setNearbyExclude(true);
+    setBufferBefore(10);
+    setBufferAfter(10);
+    setVisibility("busy_only");
+  }
+
   function handleAdd() {
     if (!date) return;
     const startAt = new Date(`${date}T${startTime}:00`).toISOString();
@@ -133,11 +168,14 @@ export default function CalendarPage() {
       endAt,
       visibility: visibility as DemoEvent["visibility"],
       memo: memo || undefined,
+      kind,
+      nearbyExclude,
+      bufferBefore,
+      bufferAfter,
     });
     reload();
     setShowAdd(false);
-    setTitle("");
-    setMemo("");
+    resetForm();
   }
 
   function handleDelete(id: string) {
@@ -170,13 +208,9 @@ export default function CalendarPage() {
 
       {/* Month nav */}
       <div className="mt-4 flex items-center justify-between">
-        <button onClick={prevMonth} className="px-3 py-1 text-lg" style={{ color: "var(--accent)" }}>
-          ‹
-        </button>
+        <button onClick={prevMonth} className="px-3 py-1 text-lg" style={{ color: "var(--accent)" }}>‹</button>
         <span className="text-base font-semibold">{fmt(current)}</span>
-        <button onClick={nextMonth} className="px-3 py-1 text-lg" style={{ color: "var(--accent)" }}>
-          ›
-        </button>
+        <button onClick={nextMonth} className="px-3 py-1 text-lg" style={{ color: "var(--accent)" }}>›</button>
       </div>
 
       {/* Weekday headers */}
@@ -221,17 +255,19 @@ export default function CalendarPage() {
               >
                 {day}
               </span>
-              {/* Show up to 2 events */}
               {dayItems.slice(0, 2).map((it) => (
                 <div
                   key={it.id}
-                  className="w-full truncate rounded px-1 text-[10px] leading-tight mb-px"
+                  className="w-full truncate rounded px-1 text-[10px] leading-tight mb-px flex items-center gap-0.5"
                   style={{
-                    backgroundColor: it.kind === "booking" ? "var(--accent)" : "var(--accent-soft)",
-                    color: it.kind === "booking" ? "var(--accent-fg)" : "var(--accent-soft-text)",
+                    backgroundColor: it.itemKind === "booking" ? "var(--accent)" : "var(--accent-soft)",
+                    color: it.itemKind === "booking" ? "var(--accent-fg)" : "var(--accent-soft-text)",
                   }}
                 >
-                  {it.title}
+                  {it.eventKind && (
+                    <span className="inline-block h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: KIND_COLORS[it.eventKind] }} />
+                  )}
+                  <span className="truncate">{it.title}</span>
                 </div>
               ))}
               {dayItems.length > 2 && (
@@ -248,17 +284,10 @@ export default function CalendarPage() {
       {selected && (
         <div className="mt-4">
           <h2 className="text-sm font-semibold">
-            {selected.toLocaleDateString("ja-JP", {
-              month: "long",
-              day: "numeric",
-              weekday: "short",
-            })}
-            の予定
+            {selected.toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" })}の予定
           </h2>
           {selectedItems.length === 0 ? (
-            <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>
-              予定はありません
-            </p>
+            <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>予定はありません</p>
           ) : (
             <div className="mt-2 space-y-2">
               {selectedItems.map((it) => (
@@ -269,9 +298,11 @@ export default function CalendarPage() {
                 >
                   <div className="flex items-center gap-2">
                     <span
-                      className="h-2 w-2 rounded-full"
+                      className="h-2 w-2 rounded-full shrink-0"
                       style={{
-                        backgroundColor: it.kind === "booking" ? "var(--accent)" : "var(--accent-soft-text)",
+                        backgroundColor: it.itemKind === "booking"
+                          ? "var(--accent)"
+                          : KIND_COLORS[it.eventKind ?? "busy"],
                       }}
                     />
                     <span className="font-medium text-sm">{it.title}</span>
@@ -279,14 +310,19 @@ export default function CalendarPage() {
                       {timeStr(it.startAt)} - {timeStr(it.endAt)}
                     </span>
                   </div>
-                  {it.kind === "booking" && (
-                    <span
-                      className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px]"
-                      style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-soft-text)" }}
-                    >
-                      予約
-                    </span>
-                  )}
+                  <div className="mt-1 flex items-center gap-2">
+                    {it.eventKind && (
+                      <span className="text-[10px]" style={{ color: KIND_COLORS[it.eventKind] }}>
+                        {KIND_LABELS[it.eventKind]}
+                      </span>
+                    )}
+                    {it.itemKind === "booking" && (
+                      <span className="rounded-full px-2 py-0.5 text-[10px]"
+                        style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-soft-text)" }}>
+                        予約
+                      </span>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>
@@ -298,48 +334,36 @@ export default function CalendarPage() {
       {detail && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setDetail(null)} />
-          <div
-            className="relative w-full max-w-lg rounded-t-2xl p-5 pb-8"
-            style={{ backgroundColor: "var(--card)" }}
-          >
+          <div className="relative w-full max-w-lg rounded-t-2xl p-5 pb-8" style={{ backgroundColor: "var(--card)" }}>
             <div className="mx-auto mb-4 h-1 w-10 rounded-full" style={{ backgroundColor: "var(--border)" }} />
             <h3 className="text-lg font-bold">{detail.title}</h3>
             <div className="mt-3 space-y-2 text-sm" style={{ color: "var(--muted)" }}>
-              <p>
-                🕐 {timeStr(detail.startAt)} - {timeStr(detail.endAt)}
-              </p>
-              <p>
-                📅{" "}
-                {new Date(detail.startAt).toLocaleDateString("ja-JP", {
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
+              <p>🕐 {timeStr(detail.startAt)} - {timeStr(detail.endAt)}</p>
+              <p>📅 {new Date(detail.startAt).toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric" })}</p>
+              {detail.eventKind && (
+                <p style={{ color: KIND_COLORS[detail.eventKind] }}>{KIND_LABELS[detail.eventKind]}</p>
+              )}
               {detail.visibility && (
-                <p>
-                  🔒{" "}
-                  {VISIBILITY_OPTIONS.find((o) => o.value === detail.visibility)?.label ?? detail.visibility}
-                </p>
+                <p>🔒 {VISIBILITY_OPTIONS.find((o) => o.value === detail.visibility)?.label ?? detail.visibility}</p>
+              )}
+              {detail.nearbyExclude !== undefined && (
+                <p>{detail.nearbyExclude ? "📡 すれ違い対象外" : "📡 すれ違い自動提案OK"}</p>
+              )}
+              {(detail.bufferBefore !== undefined || detail.bufferAfter !== undefined) && (
+                <p>⏱️ バッファ: 前{detail.bufferBefore ?? 10}分 / 後{detail.bufferAfter ?? 10}分</p>
               )}
               {detail.memo && <p>📝 {detail.memo}</p>}
-              <p>
-                種別：{detail.kind === "booking" ? "予約" : "非公開予定"}
-              </p>
+              <p>種別：{detail.itemKind === "booking" ? "予約" : "非公開予定"}</p>
             </div>
             <div className="mt-4 flex gap-2">
-              {detail.kind === "event" && (
-                <button
-                  onClick={() => handleDelete(detail.id)}
+              {detail.itemKind === "event" && (
+                <button onClick={() => handleDelete(detail.id)}
                   className="btn-outline flex-1 text-sm"
-                  style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
-                >
+                  style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>
                   削除
                 </button>
               )}
-              <button onClick={() => setDetail(null)} className="btn-primary flex-1 text-sm">
-                閉じる
-              </button>
+              <button onClick={() => setDetail(null)} className="btn-primary flex-1 text-sm">閉じる</button>
             </div>
           </div>
         </div>
@@ -349,89 +373,84 @@ export default function CalendarPage() {
       {showAdd && (
         <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowAdd(false)} />
-          <div
-            className="relative w-full max-w-lg rounded-t-2xl p-5 pb-8"
-            style={{ backgroundColor: "var(--card)" }}
-          >
+          <div className="relative w-full max-w-lg rounded-t-2xl p-5 pb-8 max-h-[85vh] overflow-y-auto" style={{ backgroundColor: "var(--card)" }}>
             <div className="mx-auto mb-4 h-1 w-10 rounded-full" style={{ backgroundColor: "var(--border)" }} />
             <h3 className="text-lg font-bold">予定を追加</h3>
             <div className="mt-4 space-y-3">
               <div>
-                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                  タイトル
-                </label>
-                <input
-                  className="input mt-1"
-                  placeholder="例: 仕事、ランチ"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                />
+                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>タイトル</label>
+                <input className="input mt-1" placeholder="例: 仕事、ランチ" value={title} onChange={(e) => setTitle(e.target.value)} />
               </div>
+
               <div>
-                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                  日付
-                </label>
-                <input
-                  type="date"
-                  className="input mt-1"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                />
+                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>種別</label>
+                <div className="mt-1 flex flex-wrap gap-1.5">
+                  {(["busy", "free", "private", "buffer"] as EventKind[]).map((k) => (
+                    <button key={k} onClick={() => setKind(k)}
+                      className={`chip text-[11px] ${k === kind ? "chip-active" : "chip-inactive"}`}>
+                      {KIND_LABELS[k]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>日付</label>
+                <input type="date" className="input mt-1" value={date} onChange={(e) => setDate(e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                    開始
-                  </label>
-                  <input
-                    type="time"
-                    className="input mt-1"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                  />
+                  <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>開始</label>
+                  <input type="time" className="input mt-1" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                    終了
-                  </label>
-                  <input
-                    type="time"
-                    className="input mt-1"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                  />
+                  <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>終了</label>
+                  <input type="time" className="input mt-1" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                 </div>
               </div>
+
               <div>
-                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                  公開範囲
-                </label>
-                <select
-                  className="input mt-1"
-                  value={visibility}
-                  onChange={(e) => setVisibility(e.target.value)}
+                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>バッファ（移動時間等）</label>
+                <div className="mt-1 grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>前</span>
+                    <select className="input mt-0.5 text-sm" value={bufferBefore} onChange={(e) => setBufferBefore(Number(e.target.value))}>
+                      {[0, 5, 10, 15, 30].map((m) => <option key={m} value={m}>{m}分</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <span className="text-[10px]" style={{ color: "var(--muted)" }}>後</span>
+                    <select className="input mt-0.5 text-sm" value={bufferAfter} onChange={(e) => setBufferAfter(Number(e.target.value))}>
+                      {[0, 5, 10, 15, 30].map((m) => <option key={m} value={m}>{m}分</option>)}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl p-3 text-sm"
+                style={{ backgroundColor: "var(--accent-soft)" }}>
+                <span style={{ color: "var(--accent-soft-text)" }}>すれ違い対象外</span>
+                <button
+                  onClick={() => setNearbyExclude(!nearbyExclude)}
+                  className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors"
+                  style={{ backgroundColor: nearbyExclude ? "var(--accent)" : "#d1d5db" }}
                 >
-                  {VISIBILITY_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
+                  <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform"
+                    style={{ transform: nearbyExclude ? "translateX(1.375rem)" : "translateX(0.25rem)" }} />
+                </button>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>公開範囲</label>
+                <select className="input mt-1" value={visibility} onChange={(e) => setVisibility(e.target.value)}>
+                  {VISIBILITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                  メモ（任意）
-                </label>
-                <input
-                  className="input mt-1"
-                  placeholder="メモ"
-                  value={memo}
-                  onChange={(e) => setMemo(e.target.value)}
-                />
+                <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>メモ（任意）</label>
+                <input className="input mt-1" placeholder="メモ" value={memo} onChange={(e) => setMemo(e.target.value)} />
               </div>
-              <button onClick={handleAdd} className="btn-primary w-full text-sm">
-                追加する
-              </button>
+              <button onClick={handleAdd} className="btn-primary w-full text-sm">追加する</button>
             </div>
           </div>
         </div>

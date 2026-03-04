@@ -285,3 +285,85 @@ export const TAG_LABELS: Record<string, string> = {
   sightseeing: "観光",
   event: "イベント同行",
 };
+
+// ===== すれ違いデモデータ =====
+export const PURPOSE_TEMPLATES = [
+  "今から30分カフェ",
+  "今から60分暇つぶし",
+  "通話30分雑談",
+  "作業同行30分（黙々OK）",
+  "散歩30分",
+  "通話15分軽くおしゃべり",
+  "カフェ作業60分",
+  "ゲーム一緒にやろう",
+];
+
+// デモ近隣チェックイン（他ユーザー）
+export const DEMO_NEARBY_CHECKINS = [
+  {
+    id: "ci-demo-1",
+    userId: "user-a",
+    displayName: "はるか",
+    bio: "カフェと散歩が好き！気軽に話しかけてね",
+    photoIndex: 0,
+    mode: "call" as const,
+    durationMinutes: 30,
+    purpose: "通話30分雑談",
+    note: "暇してます〜",
+    lat: 38.2605,
+    lng: 140.8825,
+    distanceRange: "〜300m",
+    expiresAt: new Date(Date.now() + 25 * 60_000).toISOString(),
+    createdAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+  },
+  {
+    id: "ci-demo-2",
+    userId: "user-b",
+    displayName: "たくや",
+    bio: "プログラミングと筋トレ💪",
+    photoIndex: 0,
+    mode: "in_person" as const,
+    durationMinutes: 60,
+    purpose: "カフェ作業60分",
+    note: "仙台駅近くのスタバにいます",
+    lat: 38.2602,
+    lng: 140.8830,
+    distanceRange: "〜500m",
+    expiresAt: new Date(Date.now() + 50 * 60_000).toISOString(),
+    createdAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+  },
+  {
+    id: "ci-demo-3",
+    userId: "user-c",
+    displayName: "みさき",
+    bio: "旅行好き🌍 仙台探索中",
+    photoIndex: 0,
+    mode: "in_person" as const,
+    durationMinutes: 30,
+    purpose: "散歩30分",
+    note: "天気いいし散歩しよ！",
+    lat: 38.2610,
+    lng: 140.8820,
+    distanceRange: "〜800m",
+    expiresAt: new Date(Date.now() + 20 * 60_000).toISOString(),
+    createdAt: new Date(Date.now() - 10 * 60_000).toISOString(),
+  },
+];
+
+// デモ用プロフィール写真プレースホルダ
+export const DEMO_PHOTO_PLACEHOLDERS = [
+  "demo-photo-1",
+  "demo-photo-2",
+  "demo-photo-3",
+  "demo-photo-4",
+  "demo-photo-5",
+];
+
+// 場所テンプレ（対面用）
+export const MEETUP_PLACES = [
+  "仙台駅 東口",
+  "仙台駅 西口",
+  "青葉通り スタバ前",
+  "仙台パルコ 1F",
+  "勾当台公園",
+];

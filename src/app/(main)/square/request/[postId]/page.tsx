@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getPosts, consumeTickets, addRequest, getTicketBalance } from "@/lib/demo-store";
+import { getPosts, consumeTickets, addRequest, getTicketBalance, hasPhotos } from "@/lib/demo-store";
 import { DEMO_USER } from "@/lib/demo-data";
 import type { DemoPost } from "@/lib/demo-store";
 
@@ -35,6 +35,10 @@ export default function RequestFormPage() {
 
   function handleSend() {
     setError("");
+    if (!hasPhotos()) {
+      setError("写真を1枚以上登録してから依頼してください（設定→プロフィール写真）");
+      return;
+    }
     if (!consumeTickets(5, "時間共有依頼")) {
       setError("チケットが不足しています（5🎫必要）");
       return;
