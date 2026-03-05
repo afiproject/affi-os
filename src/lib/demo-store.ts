@@ -1068,6 +1068,23 @@ export function signupUser(email: string, password: string, displayName: string)
   save("auth_users", users);
   addAuthLog(user.id, email, "signup");
   setAuthSession(user.id, email);
+
+  // 管理画面のユーザー一覧にも追加
+  const demoUsers = getUsers();
+  demoUsers.push({
+    id: user.id,
+    displayName,
+    loginEmail: email,
+    loginProvider: "email",
+    kycLevel: 0,
+    reportCount: 0,
+    lastActiveAt: new Date().toISOString(),
+    status: "active",
+    forceResetFlag: false,
+    adminNote: "",
+  });
+  save("users", demoUsers);
+
   return { ok: true, needVerify: false };
 }
 
