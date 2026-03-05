@@ -8,6 +8,10 @@ import { setSessionCookie } from "@/lib/session";
 
 const DEMO_ENTRY_KEY = process.env.NEXT_PUBLIC_DEMO_ENTRY_KEY || "";
 
+// Master account credentials (owner/viewer only - no registration)
+const MASTER_ID = "sloty";
+const MASTER_PASS = "owner1";
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -25,9 +29,22 @@ export default function LoginPage() {
     setError("");
     setNeedVerify(false);
     if (!email || !password) {
-      setError("メールアドレスとパスワードを入力してください");
+      setError("IDまたはメールアドレスとパスワードを入力してください");
       return;
     }
+
+    // Master account check (ID + password, no registration needed)
+    if (email === MASTER_ID && password === MASTER_PASS) {
+      setSessionCookie({
+        userId: "master-owner",
+        email: "owner@sloty.app",
+        role: "MASTER",
+        profileComplete: true,
+      });
+      router.replace("/home");
+      return;
+    }
+
     setLoading(true);
     const result = loginUser(email, password);
     if (result.ok) {
@@ -103,12 +120,12 @@ export default function LoginPage() {
           <div className="mt-4 space-y-3">
             <div>
               <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>
-                メールアドレス
+                IDまたはメールアドレス
               </label>
               <input
-                type="email"
+                type="text"
                 className="input mt-1"
-                placeholder="example@sloty.app"
+                placeholder="IDまたはメールアドレス"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}

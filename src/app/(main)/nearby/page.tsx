@@ -14,8 +14,9 @@ import { suggestMeetups } from "@/lib/ai";
 
 const LeafletMap = lazy(() => import("@/components/shared/LeafletMap"));
 
-const FALLBACK_LAT = 38.2601;
-const FALLBACK_LNG = 140.8829;
+// Default to user's geolocation; fallback to central Tokyo (full Japan support)
+const FALLBACK_LAT = 35.6812;
+const FALLBACK_LNG = 139.7671;
 
 const POI_FILTERS = [
   { key: "all", label: "すべて", icon: "📍" },
@@ -131,11 +132,12 @@ export default function NearbyPage() {
   const filteredPois = showPoi ? DEMO_POIS.filter(p => poiFilter === "all" || p.category === poiFilter) : [];
 
   const mapMarkers = [
-    { id: "me", lat: myLat, lng: myLng, label: "自分", color: "#9b8afb", icon: "★" },
+    { id: "me", lat: myLat, lng: myLng, label: "自分", color: "#9b8afb", icon: "★", photoUrl: myPhoto || undefined, subLabel: myCheckin ? "イマヒマ中" : undefined },
     ...nearbyList.map(ci => ({
       id: ci.id, lat: ci.lat, lng: ci.lng, label: ci.displayName,
       color: ci.mode === "in_person" ? "#f97316" : "#3b82f6",
       icon: ci.mode === "in_person" ? "🚶" : "📞",
+      subLabel: `${ci.durationMinutes}分・${ci.mode === "call" ? "通話" : "対面"}`,
       onClick: () => { setPingTarget(ci); setPingSent(false); setPingError(""); },
     })),
     ...filteredPois.map(poi => ({
@@ -171,9 +173,9 @@ export default function NearbyPage() {
       )}
 
       {/* Map area */}
-      <div className="relative flex-1 mx-4 mt-3 rounded-2xl overflow-hidden" style={{ minHeight: 380, backgroundColor: "var(--card)", border: "1px solid var(--border)" }} data-no-swipe>
+      <div className="relative flex-1 mx-4 mt-3 rounded-2xl overflow-hidden shadow-lg" style={{ minHeight: 420, backgroundColor: "#1a1a2e", border: "none" }} data-no-swipe>
         {/* Status overlay bar (top) */}
-        <div className="absolute top-0 left-0 right-0 z-10 p-3" style={{ background: "linear-gradient(to bottom, var(--card), transparent)" }}>
+        <div className="absolute top-0 left-0 right-0 z-10 p-3" style={{ background: "linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)" }}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-full text-xs"
@@ -181,8 +183,8 @@ export default function NearbyPage() {
                 {myCheckin ? "ON" : "📡"}
               </div>
               <div>
-                <p className="text-xs font-semibold">{myCheckin ? "イマヒマON" : "近くのチェックイン"}</p>
-                <p className="text-[10px]" style={{ color: "var(--muted)" }}>
+                <p className="text-xs font-semibold text-white">{myCheckin ? "イマヒマON" : "近くのチェックイン"}</p>
+                <p className="text-[10px] text-white/60">
                   {activeCount > 0 ? `${activeCount}人がヒマ` : "チェックインを待っています"}
                 </p>
               </div>
@@ -198,14 +200,14 @@ export default function NearbyPage() {
 
         {/* Map */}
         <Suspense fallback={
-          <div className="flex items-center justify-center text-sm" style={{ height: 380, color: "var(--muted)" }}>
+          <div className="flex items-center justify-center text-sm" style={{ height: 420, color: "var(--muted)" }}>
             <div className="text-center">
               <div className="mx-auto h-8 w-8 rounded-full animate-pulse" style={{ backgroundColor: "var(--accent-soft)" }} />
               <p className="mt-2 text-xs">マップを読み込み中...</p>
             </div>
           </div>
         }>
-          <LeafletMap center={[myLat, myLng]} zoom={15} height={380} markers={mapMarkers}
+          <LeafletMap center={[myLat, myLng]} zoom={15} height={420} markers={mapMarkers}
             radiusCircle={{ lat: myLat, lng: myLng, radius: 500 }} />
         </Suspense>
 

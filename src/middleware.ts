@@ -62,8 +62,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  // If profile not complete and not a DEMO user, force onboarding
-  if (!session.profileComplete && session.role !== "DEMO") {
+  // If profile not complete and not a DEMO/MASTER user, force onboarding
+  if (!session.profileComplete && session.role !== "DEMO" && session.role !== "MASTER") {
     return NextResponse.redirect(new URL("/onboarding/profile", request.url));
   }
 

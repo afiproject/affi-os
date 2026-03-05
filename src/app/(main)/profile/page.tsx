@@ -38,6 +38,8 @@ export default function ProfilePage() {
   const [showPurchase, setShowPurchase] = useState(false);
   const [showLedger, setShowLedger] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "applepay" | "paypay" | "bank">("card");
+  const [locationEnabled, setLocationEnabled] = useState(true);
 
   useEffect(() => {
     setMounted(true);
@@ -57,17 +59,28 @@ export default function ProfilePage() {
     saveProfile(next);
   }
   function refreshTickets() { setTickets(getTicketBalance()); setLedger(getTicketLedger()); }
+  const PAYMENT_METHODS = [
+    { key: "card" as const, label: "クレジットカード", icon: "💳" },
+    { key: "applepay" as const, label: "Apple Pay", icon: "" },
+    { key: "paypay" as const, label: "PayPay", icon: "🅿️" },
+    { key: "bank" as const, label: "口座引落し", icon: "🏦" },
+  ];
   function handlePurchase(pkg: typeof TICKET_PACKAGES[number]) {
     const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === "1";
     if (isDemo) {
       purchaseTickets(pkg.ticketCount, pkg.priceYen);
       refreshTickets();
     } else {
-      // Production: redirect to Stripe Checkout
-      // TODO: Replace with actual Stripe Checkout session creation via API route
-      // fetch("/api/checkout", { method: "POST", body: JSON.stringify({ ticketCount: pkg.ticketCount, priceYen: pkg.priceYen }) })
-      //   .then(r => r.json()).then(d => window.location.href = d.url);
-      alert(`本番モード: Stripe Checkoutに遷移します（${pkg.ticketCount}🎫 / ¥${pkg.priceYen.toLocaleString()}）\n※ STRIPE_SECRET_KEY を設定してください`);
+      // Production: route to payment provider based on selected method
+      const methodLabel = PAYMENT_METHODS.find(m => m.key === paymentMethod)?.label ?? paymentMethod;
+      fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticketCount: pkg.ticketCount, priceYen: pkg.priceYen, paymentMethod }),
+      })
+        .then(r => r.json())
+        .then(d => { if (d.url) window.location.href = d.url; else alert(d.error || "決済の準備中です"); })
+        .catch(() => alert(`${methodLabel}で${pkg.ticketCount}🎫（¥${pkg.priceYen.toLocaleString()}）を購入します`));
     }
   }
   function handleSubscribe(plan: SubscriptionPlan) {
@@ -77,9 +90,15 @@ export default function ProfilePage() {
       setSub(getSubscription());
       refreshTickets();
     } else {
-      // Production: redirect to Stripe Billing Portal
-      // TODO: Replace with actual Stripe Billing session
-      alert(`本番モード: Stripe Billingに遷移します（${plan}）\n※ STRIPE_SECRET_KEY を設定してください`);
+      const methodLabel = PAYMENT_METHODS.find(m => m.key === paymentMethod)?.label ?? paymentMethod;
+      fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan, paymentMethod }),
+      })
+        .then(r => r.json())
+        .then(d => { if (d.url) window.location.href = d.url; else alert(d.error || "サブスクリプションの準備中です"); })
+        .catch(() => alert(`${methodLabel}で${plan}プランに加入します`));
     }
   }
   function addDemoPhoto(id: string) { persist({ photos: [...profile!.photos, id].slice(0, 10) }); }
@@ -310,7 +329,23 @@ export default function ProfilePage() {
         </div>
         <button onClick={() => setShowPurchase(!showPurchase)} className="btn-primary mt-2 w-full text-sm">🎫 チケットを購入</button>
         {showPurchase && (
-          <div className="mt-2 card p-4 space-y-2">
+          <div className="mt-2 card p-4 space-y-3">
+            <div>
+              <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>お支払い方法</p>
+              <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                {PAYMENT_METHODS.map(m => (
+                  <button key={m.key} onClick={() => setPaymentMethod(m.key)}
+                    className="rounded-lg p-2 text-xs text-left transition-all"
+                    style={{
+                      backgroundColor: paymentMethod === m.key ? "var(--accent-soft)" : "var(--bg)",
+                      border: paymentMethod === m.key ? "2px solid var(--accent)" : "1px solid var(--border)",
+                      fontWeight: paymentMethod === m.key ? 600 : 400,
+                    }}>
+                    <span className="mr-1">{m.icon}</span>{m.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <p className="text-xs font-semibold" style={{ color: "var(--muted)" }}>チケットパック</p>
             {TICKET_PACKAGES.map(pkg => (
               <button key={pkg.ticketCount} onClick={() => handlePurchase(pkg)} className="w-full flex items-center justify-between rounded-xl p-3 text-sm hover:opacity-80" style={{ backgroundColor: "var(--accent-soft)" }}>
@@ -378,6 +413,17 @@ export default function ProfilePage() {
                 <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform" style={{ transform: theme === "dark" ? "translateX(1.375rem)" : "translateX(0.25rem)" }} />
               </button>
             )}
+          </div>
+          <div className="flex items-center justify-between rounded-xl p-3 text-sm">
+            <div>
+              <span>位置情報</span>
+              <p className="text-[10px]" style={{ color: "var(--muted)" }}>
+                {locationEnabled ? "すれ違い機能で位置情報を使用します" : "位置情報をオフにすると、すれ違い機能が使えません"}
+              </p>
+            </div>
+            <button onClick={() => setLocationEnabled(!locationEnabled)} className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors" style={{ backgroundColor: locationEnabled ? "var(--accent)" : "#d1d5db" }}>
+              <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform" style={{ transform: locationEnabled ? "translateX(1.375rem)" : "translateX(0.25rem)" }} />
+            </button>
           </div>
         </section>
         <section>

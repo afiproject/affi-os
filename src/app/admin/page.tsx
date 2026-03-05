@@ -99,7 +99,6 @@ export default function AdminPage() {
             onKeyDown={e => e.key === "Enter" && handleLogin()} />
           {error && <p className="mt-1 text-xs" style={{ color: "var(--danger)" }}>{error}</p>}
           <button onClick={handleLogin} className="btn-primary w-full mt-3 text-sm">ログイン</button>
-          <p className="mt-3 text-[10px]" style={{ color: "var(--muted)" }}>デモ用パスコード: sloty2024</p>
         </div>
       </div>
     );

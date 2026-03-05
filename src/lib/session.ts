@@ -6,7 +6,7 @@
 const COOKIE_NAME = "sloty_session";
 const SESSION_DURATION_MS = 24 * 60 * 60 * 1000; // 24h
 
-export type SessionRole = "USER" | "ADMIN" | "DEMO";
+export type SessionRole = "USER" | "ADMIN" | "DEMO" | "MASTER";
 
 export type SessionData = {
   userId: string;

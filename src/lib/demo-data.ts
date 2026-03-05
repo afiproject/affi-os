@@ -49,7 +49,7 @@ export const DEMO_SLOTS = [
     endAt: futureDate(5),
     durationMinutes: 60,
     priceYen: 800,
-    areaValue: "仙台駅周辺",
+    areaValue: "駅周辺",
     bookingType: "approval" as const,
     status: "listed",
     seller: {
@@ -70,7 +70,7 @@ export const DEMO_SLOTS = [
     endAt: futureDate(7),
     durationMinutes: 60,
     priceYen: 600,
-    areaValue: "青葉区",
+    areaValue: "市内",
     bookingType: "approval" as const,
     status: "listed",
     seller: {
@@ -133,7 +133,7 @@ export const DEMO_SLOTS = [
     endAt: futureDate(6),
     durationMinutes: 60,
     priceYen: 700,
-    areaValue: "仙台駅周辺",
+    areaValue: "駅周辺",
     bookingType: "instant" as const,
     status: "listed",
     seller: {
@@ -304,6 +304,9 @@ export const PURPOSE_TEMPLATES = [
 ];
 
 // デモ近隣チェックイン（他ユーザー）
+// ユーザーの現在地付近にランダム配置（全国対応）
+function nearbyOffset() { return (Math.random() - 0.5) * 0.006; }
+
 export const DEMO_NEARBY_CHECKINS = [
   {
     id: "ci-demo-1",
@@ -315,8 +318,8 @@ export const DEMO_NEARBY_CHECKINS = [
     durationMinutes: 30,
     purpose: "通話30分雑談",
     note: "暇してます〜",
-    lat: 38.2605,
-    lng: 140.8825,
+    lat: 35.6812 + nearbyOffset(),
+    lng: 139.7671 + nearbyOffset(),
     distanceRange: "〜300m",
     expiresAt: new Date(Date.now() + 25 * 60_000).toISOString(),
     createdAt: new Date(Date.now() - 5 * 60_000).toISOString(),
@@ -330,9 +333,9 @@ export const DEMO_NEARBY_CHECKINS = [
     mode: "in_person" as const,
     durationMinutes: 60,
     purpose: "カフェ作業60分",
-    note: "仙台駅近くのスタバにいます",
-    lat: 38.2602,
-    lng: 140.8830,
+    note: "駅近くのスタバにいます",
+    lat: 35.6812 + nearbyOffset(),
+    lng: 139.7671 + nearbyOffset(),
     distanceRange: "〜500m",
     expiresAt: new Date(Date.now() + 50 * 60_000).toISOString(),
     createdAt: new Date(Date.now() - 10 * 60_000).toISOString(),
@@ -341,14 +344,14 @@ export const DEMO_NEARBY_CHECKINS = [
     id: "ci-demo-3",
     userId: "user-c",
     displayName: "みさき",
-    bio: "旅行好き🌍 仙台探索中",
+    bio: "旅行好き🌍 街探索中",
     photoIndex: 0,
     mode: "in_person" as const,
     durationMinutes: 30,
     purpose: "散歩30分",
     note: "天気いいし散歩しよ！",
-    lat: 38.2610,
-    lng: 140.8820,
+    lat: 35.6812 + nearbyOffset(),
+    lng: 139.7671 + nearbyOffset(),
     distanceRange: "〜800m",
     expiresAt: new Date(Date.now() + 20 * 60_000).toISOString(),
     createdAt: new Date(Date.now() - 10 * 60_000).toISOString(),
@@ -366,11 +369,11 @@ export const DEMO_PHOTO_PLACEHOLDERS = [
 
 // 場所テンプレ（対面用）
 export const MEETUP_PLACES = [
-  "仙台駅 東口",
-  "仙台駅 西口",
-  "青葉通り スタバ前",
-  "仙台パルコ 1F",
-  "勾当台公園",
+  "最寄り駅 改札前",
+  "スターバックス",
+  "駅前カフェ",
+  "ショッピングモール入口",
+  "近くの公園",
 ];
 
 // ===== プロフィール タグ選択肢 =====
@@ -381,22 +384,22 @@ export const WORK_STYLE_OPTIONS = ["フルリモート", "ハイブリッド", "
 export const INCOME_RANGE_OPTIONS = ["非公開", "〜300万", "300〜500万", "500〜700万", "700〜1000万", "1000万〜"];
 export const LIFE_TAG_OPTIONS = ["非喫煙", "喫煙", "お酒飲む", "お酒飲まない", "朝型", "夜型", "インドア", "アウトドア"];
 export const GENDER_OPTIONS = ["男性", "女性", "その他", "非公開"];
-export const AREA_TAG_OPTIONS = ["仙台駅周辺", "青葉区", "宮城野区", "太白区", "泉区", "南相馬", "福島"];
+export const AREA_TAG_OPTIONS = ["東京", "大阪", "名古屋", "福岡", "札幌", "仙台", "横浜", "京都", "神戸", "広島", "埼玉", "千葉"];
 export const CONTACT_STYLE_OPTIONS = ["即レス派", "ゆっくり派", "夜だけ", "平日のみ", "週末のみ"];
 export const NG_TAG_OPTIONS = ["通話NG", "対面NG", "タバコNG", "お酒NG", "深夜NG", "早朝NG"];
 
-// ===== POI（近くの候補地点） =====
+// ===== POI（近くの候補地点）ユーザーの位置ベースで動的に表示 =====
 export const DEMO_POIS: { id: string; name: string; category: string; lat: number; lng: number; note: string }[] = [
-  { id: "poi-1", name: "仙台駅 アーケード", category: "公共", lat: 38.2601, lng: 140.8829, note: "雨でもOK・人が多く安全" },
-  { id: "poi-2", name: "スターバックス 仙台駅前店", category: "カフェ", lat: 38.2608, lng: 140.8835, note: "Wi-Fi有・長居OK" },
-  { id: "poi-3", name: "仙台パルコ 1Fエントランス", category: "公共", lat: 38.2598, lng: 140.8820, note: "わかりやすい待ち合わせスポット" },
-  { id: "poi-4", name: "青葉通り ケヤキ並木", category: "公園", lat: 38.2612, lng: 140.8800, note: "天気いい日の散歩に最適" },
-  { id: "poi-5", name: "勾当台公園", category: "公園", lat: 38.2650, lng: 140.8700, note: "広くて開放的" },
-  { id: "poi-6", name: "タリーズ 仙台マークワン店", category: "カフェ", lat: 38.2595, lng: 140.8832, note: "コンセント有・静か" },
-  { id: "poi-7", name: "牛たん利久 仙台駅前店", category: "ご飯", lat: 38.2603, lng: 140.8838, note: "仙台名物・テーブル席あり" },
-  { id: "poi-8", name: "エニタイムフィットネス 仙台駅前", category: "公共", lat: 38.2610, lng: 140.8840, note: "24h営業ジム" },
-  { id: "poi-9", name: "ドトール 青葉通り店", category: "カフェ", lat: 38.2615, lng: 140.8810, note: "リーズナブル・駅近" },
-  { id: "poi-10", name: "大戸屋 仙台駅前店", category: "ご飯", lat: 38.2600, lng: 140.8825, note: "和食定食・1人OK" },
+  { id: "poi-1", name: "駅前広場", category: "公共", lat: 35.6815 + nearbyOffset(), lng: 139.7670 + nearbyOffset(), note: "雨でもOK・人が多く安全" },
+  { id: "poi-2", name: "スターバックス", category: "カフェ", lat: 35.6820 + nearbyOffset(), lng: 139.7680 + nearbyOffset(), note: "Wi-Fi有・長居OK" },
+  { id: "poi-3", name: "ショッピングモール", category: "公共", lat: 35.6800 + nearbyOffset(), lng: 139.7660 + nearbyOffset(), note: "わかりやすい待ち合わせスポット" },
+  { id: "poi-4", name: "並木道", category: "公園", lat: 35.6825 + nearbyOffset(), lng: 139.7650 + nearbyOffset(), note: "天気いい日の散歩に最適" },
+  { id: "poi-5", name: "中央公園", category: "公園", lat: 35.6840 + nearbyOffset(), lng: 139.7640 + nearbyOffset(), note: "広くて開放的" },
+  { id: "poi-6", name: "タリーズコーヒー", category: "カフェ", lat: 35.6805 + nearbyOffset(), lng: 139.7675 + nearbyOffset(), note: "コンセント有・静か" },
+  { id: "poi-7", name: "定食屋", category: "ご飯", lat: 35.6818 + nearbyOffset(), lng: 139.7685 + nearbyOffset(), note: "テーブル席あり・1人OK" },
+  { id: "poi-8", name: "フィットネスジム", category: "公共", lat: 35.6830 + nearbyOffset(), lng: 139.7690 + nearbyOffset(), note: "24h営業" },
+  { id: "poi-9", name: "ドトールコーヒー", category: "カフェ", lat: 35.6835 + nearbyOffset(), lng: 139.7655 + nearbyOffset(), note: "リーズナブル・駅近" },
+  { id: "poi-10", name: "和食レストラン", category: "ご飯", lat: 35.6810 + nearbyOffset(), lng: 139.7665 + nearbyOffset(), note: "和食定食・1人OK" },
 ];
 
 // ===== フレンドカレンダーデモイベント =====
