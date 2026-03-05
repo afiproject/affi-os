@@ -1117,6 +1117,30 @@ export function loginUser(email: string, password: string): { ok: boolean; error
   save("auth_users", users);
   addAuthLog(user.id, email, "login");
   setAuthSession(user.id, email);
+
+  // 管理画面のユーザー一覧にも同期（DemoUserが存在しなければ作成）
+  const demoUsers = getUsers();
+  const existingDemoUser = demoUsers.find(d => d.loginEmail.toLowerCase() === email.toLowerCase() || d.id === user.id);
+  if (!existingDemoUser) {
+    demoUsers.push({
+      id: user.id,
+      displayName: user.displayName,
+      loginEmail: email,
+      loginProvider: "email",
+      kycLevel: 0,
+      reportCount: 0,
+      lastActiveAt: new Date().toISOString(),
+      status: "active",
+      forceResetFlag: false,
+      adminNote: "",
+    });
+    save("users", demoUsers);
+  } else {
+    // 既存のDemoUserの最終アクティブ日時を更新
+    existingDemoUser.lastActiveAt = new Date().toISOString();
+    save("users", demoUsers);
+  }
+
   return { ok: true };
 }
 
@@ -1143,7 +1167,7 @@ export function setAuthSession(userId: string, email: string) {
   save("auth_session", {
     userId, email,
     token: `tok-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    expiresAt: Date.now() + 24 * 60 * 60_000,
+    expiresAt: Date.now() + 30 * 24 * 60 * 60_000,
   });
 }
 
