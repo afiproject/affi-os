@@ -74,7 +74,8 @@ export default function SlotCard({
             {durationMinutes}分
           </span>
         </div>
-        <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900 dark:text-primary-300">
+        <span className="rounded-full px-2 py-0.5 text-xs font-medium"
+          style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-soft-text)" }}>
           {bookingType === "instant" ? "即確定" : "承認制"}
         </span>
       </div>
@@ -85,8 +86,8 @@ export default function SlotCard({
           <span>{dateStr} {timeStr}</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span>💰</span>
-          <span className="font-semibold">¥{priceYen.toLocaleString()}</span>
+          <span>🎫</span>
+          <span className="font-semibold">{priceYen}枚</span>
         </div>
         {areaValue && (
           <div className="flex items-center gap-1.5">

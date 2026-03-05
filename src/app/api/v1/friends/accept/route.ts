@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   }
 
   // トランザクション: 双方向のフレンドレコード作成 + 招待使用カウント更新
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx: any) => {
     // 双方向のフレンドレコード
     const friend1 = await tx.friend.create({
       data: {

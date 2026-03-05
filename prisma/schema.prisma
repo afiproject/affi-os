@@ -11,6 +11,19 @@ datasource db {
 // Enums
 // ============================================================
 
+enum UserRole {
+  USER
+  ADMIN
+  DEMO
+}
+
+enum KycStatusEnum {
+  none
+  pending
+  approved
+  rejected
+}
+
 enum VerificationStatus {
   none
   pending
@@ -168,6 +181,10 @@ model User {
   darkMode                  Boolean            @default(false) @map("dark_mode")
   pushEnabled               Boolean            @default(true) @map("push_enabled")
   defaultCalendarPermission CalendarPermission @default(busy_only) @map("default_calendar_permission")
+  role                      UserRole           @default(USER)
+  emailVerifiedAt           DateTime?          @map("email_verified_at") @db.Timestamptz()
+  isSuspended               Boolean            @default(false) @map("is_suspended")
+  lastLoginAt               DateTime?          @map("last_login_at") @db.Timestamptz()
   createdAt                 DateTime           @default(now()) @map("created_at") @db.Timestamptz()
   updatedAt                 DateTime           @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
 
@@ -186,6 +203,9 @@ model User {
   ticketLedger       TicketLedger[]
   reportsSubmitted   Report[]
   notifications      Notification[]
+  profile            Profile?
+  authTokens         AuthVerificationToken[]
+  kycRequests        KycRequestRecord[]
 
   @@map("users")
 }
@@ -440,4 +460,80 @@ model Category {
   isActive    Boolean @default(true) @map("is_active")
 
   @@map("categories")
+}
+
+// ============================================================
+// Auth & Onboarding Models
+// ============================================================
+
+model Profile {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId       String   @unique @map("user_id") @db.Uuid
+  displayName  String   @map("display_name") @db.VarChar(50)
+  nameKanji    String   @map("name_kanji") @db.VarChar(50)
+  nameHiragana String   @map("name_hiragana") @db.VarChar(50)
+  nameKatakana String?  @map("name_katakana") @db.VarChar(50)
+  isForeigner  Boolean  @default(false) @map("is_foreigner")
+  birthdate    DateTime @db.Date
+  gender       String?  @db.VarChar(20)
+  area         String?  @db.VarChar(100)
+  job          String?  @db.VarChar(50)
+  interests    Json     @default("[]")
+  bio          String?  @db.VarChar(160)
+  photos       Json     @default("[]")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz()
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model AuthVerificationToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash") @db.VarChar(128)
+  type      String    @db.VarChar(20) // verify | reset | email_change
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz()
+  usedAt    DateTime? @map("used_at") @db.Timestamptz()
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz()
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tokenHash])
+  @@index([userId, type])
+  @@map("auth_verification_tokens")
+}
+
+model AuthLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventType String   @map("event_type") @db.VarChar(30)
+  userEmail String?  @map("user_email") @db.VarChar(255)
+  userId    String?  @map("user_id") @db.Uuid
+  ip        String?  @db.VarChar(45)
+  ua        String?  @db.VarChar(255)
+  meta      Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz()
+
+  @@index([eventType, createdAt(sort: Desc)])
+  @@index([userId])
+  @@map("auth_logs")
+}
+
+model KycRequestRecord {
+  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String       @map("user_id") @db.Uuid
+  status          KycStatusEnum @default(none)
+  idDocImages     Json         @default("[]") @map("id_doc_images")
+  selfieImages    Json         @default("[]") @map("selfie_images")
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz()
+  reviewedAt      DateTime?    @map("reviewed_at") @db.Timestamptz()
+  reviewerAdminId String?      @map("reviewer_admin_id") @db.Uuid
+  reviewNote      String?      @map("review_note")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@map("kyc_requests_db")
 }

@@ -37,7 +37,7 @@ export async function POST(
   const body = await req.json().catch(() => ({}));
   const priceYen = body.priceYen ?? request.budgetYen;
 
-  const result = await prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx: any) => {
     // 1. Slot自動生成
     const startAt = request.desiredStartAt ?? new Date();
     const endAt = new Date(

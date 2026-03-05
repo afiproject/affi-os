@@ -29,7 +29,8 @@ export default function InvitePage() {
       {/* QR Code */}
       <div className="mt-6 card p-6 text-center">
         <h2 className="text-xs font-semibold uppercase text-[var(--color-text-secondary)]">QRコード</h2>
-        <div className="mt-4 mx-auto flex h-48 w-48 items-center justify-center rounded-xl border-2 border-dashed border-[var(--color-border)] bg-white dark:bg-gray-900">
+        <div className="mt-4 mx-auto flex h-48 w-48 items-center justify-center rounded-xl border-2 border-dashed"
+          style={{ borderColor: "var(--border)", backgroundColor: "var(--card)" }}>
           <div className="space-y-1 text-center">
             <p className="text-4xl">📱</p>
             <p className="text-xs text-[var(--color-text-secondary)]">QRコード</p>
@@ -75,7 +76,8 @@ export default function InvitePage() {
       </button>
 
       {/* Info */}
-      <div className="mt-4 rounded-xl bg-primary-50 p-3 text-xs text-primary-800 dark:bg-primary-900/30 dark:text-primary-200">
+      <div className="mt-4 rounded-xl p-3 text-xs"
+        style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-soft-text)" }}>
         <p className="font-semibold">フレンドになると：</p>
         <ul className="mt-1 space-y-0.5 list-disc pl-4">
           <li>お互いのFree/Busyカレンダーを閲覧可能</li>

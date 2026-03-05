@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   });
 
   // Booking レコード作成
-  const booking = await prisma.$transaction(async (tx) => {
+  const booking = await prisma.$transaction(async (tx: any) => {
     const newBooking = await tx.booking.create({
       data: {
         slotId: slot.id,

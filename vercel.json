@@ -1,0 +1,12 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "next build",
+  "installCommand": "npm install",
+  "env": {
+    "NEXT_PUBLIC_DEMO_MODE": "1",
+    "NEXT_PUBLIC_DEMO_ENTRY_KEY": "sloty-demo",
+    "ADMIN_PASSCODE": "sloty2024",
+    "OWNER_EMAIL": "demo@sloty.app",
+    "RETENTION_DAYS": "180"
+  }
+}

@@ -4,54 +4,141 @@
 
 @layer base {
   :root {
-    --color-bg: #ffffff;
-    --color-card: #f8f8fc;
-    --color-text-primary: #1a1a2e;
-    --color-text-secondary: #6b7280;
-    --color-accent: #8b5cf6;
-    --color-accent-hover: #7c3aed;
-    --color-border: #e5e7eb;
+    /* ── Layout ── */
+    --bg: #ffffff;
+    --card: #ffffff;
+    --text: #1e1e2f;
+    --muted: #7c7f8a;
+    --border: #ebebef;
+
+    /* ── Accent: 薄紫 (lavender) ── */
+    --accent: #9b8afb;
+    --accent-hover: #8778e8;
+    --accent-active: #7566d5;
+    --accent-fg: #ffffff;
+    --accent-soft: #f3f0ff;
+    --accent-soft-text: #6e5dcc;
+    --ring: rgba(155, 138, 251, 0.45);
+
+    /* ── Semantic ── */
+    --success: #34c77b;
+    --danger: #e8453c;
   }
 
   .dark {
-    --color-bg: #1a1a2e;
-    --color-card: #252540;
-    --color-text-primary: #f0f0f5;
-    --color-text-secondary: #9ca3af;
-    --color-accent: #a78bfa;
-    --color-accent-hover: #8b5cf6;
-    --color-border: #374151;
+    --bg: #101018;
+    --card: #1a1a28;
+    --text: #eeeef4;
+    --muted: #8e8fa0;
+    --border: #2a2a3c;
+
+    --accent: #b4a4fc;
+    --accent-hover: #c8bcfd;
+    --accent-active: #dbd3fe;
+    --accent-fg: #101018;
+    --accent-soft: rgba(155, 138, 251, 0.12);
+    --accent-soft-text: #c8bcfd;
+    --ring: rgba(180, 164, 252, 0.40);
+
+    --success: #4ade80;
+    --danger: #f87171;
   }
 
   body {
-    background-color: var(--color-bg);
-    color: var(--color-text-primary);
+    background-color: var(--bg);
+    color: var(--text);
+  }
+
+  /* Legacy aliases for any remaining var(--color-*) refs */
+  :root {
+    --color-bg: var(--bg);
+    --color-card: var(--card);
+    --color-text-primary: var(--text);
+    --color-text-secondary: var(--muted);
+    --color-accent: var(--accent);
+    --color-accent-hover: var(--accent-hover);
+    --color-border: var(--border);
   }
 }
 
 @layer components {
+  /* ── Primary button ── */
   .btn-primary {
-    @apply rounded-xl px-6 py-3 font-semibold text-white transition-colors;
-    background-color: var(--color-accent);
+    @apply rounded-xl px-6 py-3 font-semibold transition-all;
+    background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+    color: var(--accent-fg);
+    box-shadow: 0 2px 8px var(--ring);
   }
   .btn-primary:hover {
-    background-color: var(--color-accent-hover);
+    background: linear-gradient(135deg, var(--accent-hover), var(--accent-active));
+  }
+  .btn-primary:active {
+    transform: scale(0.98);
+  }
+  .btn-primary:disabled {
+    @apply opacity-40 cursor-not-allowed;
+    box-shadow: none;
   }
 
+  /* ── Outline button ── */
+  .btn-outline {
+    @apply rounded-xl px-4 py-2 text-sm font-medium transition-colors;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-outline:hover {
+    background-color: var(--accent-soft);
+    color: var(--accent-soft-text);
+    border-color: var(--accent);
+  }
+
+  /* ── Card ── */
   .card {
-    @apply rounded-2xl p-4 shadow-sm;
-    background-color: var(--color-card);
-    border: 1px solid var(--color-border);
+    @apply rounded-2xl p-4;
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   }
 
+  /* ── Tabs ── */
   .tab-active {
     @apply border-b-2 font-semibold;
-    border-color: var(--color-accent);
-    color: var(--color-accent);
+    border-color: var(--accent);
+    color: var(--accent);
   }
-
   .tab-inactive {
     @apply border-b-2 border-transparent;
-    color: var(--color-text-secondary);
+    color: var(--muted);
+  }
+
+  /* ── Chips ── */
+  .chip {
+    @apply rounded-full px-3 py-1.5 text-xs font-medium transition-colors;
+  }
+  .chip-active {
+    background-color: var(--accent);
+    color: var(--accent-fg);
+    box-shadow: 0 1px 4px var(--ring);
+  }
+  .chip-inactive {
+    background-color: var(--accent-soft);
+    color: var(--accent-soft-text);
+    border: 1px solid transparent;
+  }
+  .chip-inactive:hover {
+    border-color: var(--accent);
+  }
+
+  /* ── Input ── */
+  .input {
+    @apply w-full rounded-xl p-3 text-sm;
+    background-color: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--ring);
   }
 }
