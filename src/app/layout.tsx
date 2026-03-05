@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "next-themes";
+import SplashScreen from "@/components/SplashScreen";
 import "./globals.css";
 
 
@@ -23,7 +24,9 @@ export default function RootLayout({
     <html lang="ja" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-          {children}
+          <SplashScreen>
+            {children}
+          </SplashScreen>
         </ThemeProvider>
       </body>
     </html>
