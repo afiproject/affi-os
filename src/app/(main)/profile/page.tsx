@@ -37,6 +37,7 @@ export default function ProfilePage() {
   const [sub, setSub] = useState<{ plan: SubscriptionPlan }>({ plan: "none" });
   const [showPurchase, setShowPurchase] = useState(false);
   const [showLedger, setShowLedger] = useState(false);
+  const [showHowTo, setShowHowTo] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -379,6 +380,60 @@ export default function ProfilePage() {
             )}
           </div>
         </section>
+        <section>
+          <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>SLOTYの使い方</h2>
+          <button onClick={() => setShowHowTo(!showHowTo)} className="mt-2 w-full flex items-center justify-between rounded-xl p-3 text-sm transition-colors hover:opacity-80" style={{ backgroundColor: "var(--accent-soft)" }}>
+            <span>📖 はじめてのSLOTY</span>
+            <span style={{ color: "var(--muted)", transform: showHowTo ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>→</span>
+          </button>
+          {showHowTo && (
+            <div className="mt-2 card p-4 space-y-4 text-sm">
+              <div>
+                <p className="font-semibold text-xs" style={{ color: "var(--accent)" }}>SLOTYとは？</p>
+                <p className="mt-1 text-xs leading-relaxed">SLOTYは「人」ではなく「時間枠（スロット）」を売買・共有するマーケットアプリです。空いた時間をスロットとして出品し、気になる人の時間を予約できます。</p>
+              </div>
+              <div className="h-px" style={{ backgroundColor: "var(--border)" }} />
+
+              <div>
+                <p className="font-semibold text-xs">📝 Step 1: プロフィールを作ろう</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>写真を1枚以上登録し、表示名・自己紹介・目的タグを設定しましょう。写真がないと、すれ違い・広場投稿・依頼送信が使えません。</p>
+              </div>
+
+              <div>
+                <p className="font-semibold text-xs">🎫 Step 2: チケットを手に入れよう</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>チケットはアプリ内の通貨です。チケットパックの購入やサブスクリプションで入手できます。通話や対面の完了でも毎日最大3枚もらえます。</p>
+              </div>
+
+              <div>
+                <p className="font-semibold text-xs">🛒 Step 3: スロットを出品しよう</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>マーケットタブから「空き時間」をスロットとして出品できます（1🎫）。カフェでおしゃべり、オンライン通話、散歩など自由に設定できます。</p>
+              </div>
+
+              <div>
+                <p className="font-semibold text-xs">📌 Step 4: 気になる人にピンを送ろう</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>マーケットやすれ違いで見つけた相手にピン（5🎫）を送って興味を伝えましょう。相手が受け入れるとマッチングが成立し、メッセージが始まります。</p>
+              </div>
+
+              <div>
+                <p className="font-semibold text-xs">📅 Step 5: 予約して会おう</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>マッチした相手のスロットを予約して、通話や対面の予定を確定させましょう。予約管理から確認・キャンセルもできます。</p>
+              </div>
+
+              <div className="h-px" style={{ backgroundColor: "var(--border)" }} />
+              <div>
+                <p className="font-semibold text-xs">💡 その他の機能</p>
+                <div className="mt-1 space-y-1 text-xs" style={{ color: "var(--muted)" }}>
+                  <p>🗺️ <strong>すれ違い</strong> — 近くにいるユーザーをマップで発見</p>
+                  <p>📢 <strong>広場</strong> — 投稿や依頼で仲間を見つける（2🎫）</p>
+                  <p>🚀 <strong>ブースト</strong> — 30分間マーケットで目立つ（10🎫）</p>
+                  <p>👥 <strong>フレンド</strong> — カレンダーを共有して予定を合わせる</p>
+                  <p>🔒 <strong>本人確認</strong> — KYCレベルを上げて信頼度アップ</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
         <section>
           <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>アカウント</h2>
           <div className="mt-2 space-y-1">
