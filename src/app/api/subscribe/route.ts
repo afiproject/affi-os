@@ -10,8 +10,7 @@ export async function POST(req: NextRequest) {
   const { plan, paymentMethod } = body;
 
   if (plan === "none") {
-    // Cancel subscription - in production, cancel via Stripe/PayPay
-    return NextResponse.json({ ok: true, message: "サブスクリプションを解約しました" });
+    return NextResponse.json({ ok: true, demo: true, message: "サブスクリプションを解約しました" });
   }
 
   if (!PLAN_PRICES[plan]) {
@@ -22,7 +21,13 @@ export async function POST(req: NextRequest) {
 
   if (paymentMethod === "card" || paymentMethod === "applepay") {
     if (!stripeKey) {
-      return NextResponse.json({ error: "STRIPE_SECRET_KEY が設定されていません。管理者に連絡してください。" }, { status: 500 });
+      // デモモード: Stripeキーがない場合はデモサブスクとして成功を返す
+      return NextResponse.json({
+        demo: true,
+        ok: true,
+        plan,
+        message: `デモ: ${plan === "basic" ? "Basic" : "Plus"}プランに加入しました`,
+      });
     }
     try {
       const stripe = require("stripe")(stripeKey);
@@ -49,11 +54,21 @@ export async function POST(req: NextRequest) {
   }
 
   if (paymentMethod === "paypay") {
-    return NextResponse.json({ error: "PayPay定期決済は準備中です。" }, { status: 501 });
+    return NextResponse.json({
+      demo: true,
+      ok: true,
+      plan,
+      message: `デモ: PayPayで${plan === "basic" ? "Basic" : "Plus"}プランに加入しました`,
+    });
   }
 
   if (paymentMethod === "bank") {
-    return NextResponse.json({ error: "口座引落しによるサブスクは準備中です。" }, { status: 501 });
+    return NextResponse.json({
+      demo: true,
+      ok: true,
+      plan,
+      message: `デモ: 口座引落しで${plan === "basic" ? "Basic" : "Plus"}プランに加入しました`,
+    });
   }
 
   return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });

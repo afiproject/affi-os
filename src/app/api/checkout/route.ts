@@ -13,7 +13,13 @@ export async function POST(req: NextRequest) {
   // Stripe (credit card / Apple Pay) checkout
   if (paymentMethod === "card" || paymentMethod === "applepay") {
     if (!stripeKey) {
-      return NextResponse.json({ error: "STRIPE_SECRET_KEY が設定されていません。管理者に連絡してください。" }, { status: 500 });
+      // デモモード: Stripeキーがない場合はデモ購入として成功を返す
+      return NextResponse.json({
+        demo: true,
+        ok: true,
+        ticketCount,
+        message: `デモ: ${ticketCount}🎫を購入しました`,
+      });
     }
     try {
       const stripe = require("stripe")(stripeKey);
@@ -43,19 +49,27 @@ export async function POST(req: NextRequest) {
 
   // PayPay checkout
   if (paymentMethod === "paypay") {
-    // PayPay integration placeholder
-    // In production, integrate with PayPay Web Payment API
+    if (!process.env.PAYPAY_API_KEY) {
+      return NextResponse.json({
+        demo: true,
+        ok: true,
+        ticketCount,
+        message: `デモ: PayPayで${ticketCount}🎫を購入しました`,
+      });
+    }
     return NextResponse.json({
-      error: "PayPay決済は準備中です。PAYPAY_API_KEY を設定してください。",
+      error: "PayPay決済は準備中です。",
     }, { status: 501 });
   }
 
   // Bank transfer
   if (paymentMethod === "bank") {
-    // Bank transfer integration placeholder
     return NextResponse.json({
-      error: "口座引落しは準備中です。銀行APIの設定が必要です。",
-    }, { status: 501 });
+      demo: true,
+      ok: true,
+      ticketCount,
+      message: `デモ: 口座引落しで${ticketCount}🎫を購入しました`,
+    });
   }
 
   return NextResponse.json({ error: "Invalid payment method" }, { status: 400 });
