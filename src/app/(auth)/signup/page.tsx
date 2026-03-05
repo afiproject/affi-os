@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signupUser, isProfileComplete } from "@/lib/demo-store";
+import { signupUser, isProfileComplete, findAuthUserByEmail } from "@/lib/demo-store";
 import { setSessionCookie } from "@/lib/session";
 
 export default function SignupPage() {
@@ -26,8 +26,9 @@ export default function SignupPage() {
     setLoading(true);
     const result = signupUser(email, password, displayName);
     if (result.ok) {
-      // メール確認スキップ：そのままログイン状態にしてリダイレクト
-      const profileDone = isProfileComplete();
+      // 新規登録は常にオンボーディングへ
+      const authUser = findAuthUserByEmail(email);
+      const profileDone = authUser?.profileComplete ?? false;
       setSessionCookie({
         userId: email,
         email,

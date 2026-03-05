@@ -8,7 +8,7 @@ import {
   getReports, getRooms, getMessages, getMedia, getCallLogs,
   getTicketLedger, getTicketBalance,
   getAuthUsers, getAuthLog, getSupportMessages,
-  getOnboardingProfile,
+  getOnboardingProfile, getOnboardingProfileForUser,
 } from "@/lib/demo-store";
 import type { OnboardingProfile } from "@/lib/demo-store";
 import type {
@@ -308,12 +308,19 @@ function AdminUsersTab() {
 
   useEffect(() => { setUsers(getUsers()); setAuthUsers(getAuthUsers()); }, []);
 
-  // Load onboarding profile for search
-  const obProfile = getOnboardingProfile();
+  // Load onboarding profiles per user (check user-specific key, then email key, then global fallback)
+  function getProfileForUser(u: DemoUser): OnboardingProfile {
+    const byId = getOnboardingProfileForUser(u.id);
+    if (byId.displayName) return byId;
+    const byEmail = getOnboardingProfileForUser(u.loginEmail);
+    if (byEmail.displayName) return byEmail;
+    return getOnboardingProfile();
+  }
 
   const filteredUsers = search.trim()
     ? users.filter(u => {
         const q = normalize(search);
+        const obProfile = getProfileForUser(u);
         return normalize(u.displayName).includes(q)
           || normalize(u.loginEmail).includes(q)
           || normalize(u.id).includes(q)
@@ -397,21 +404,21 @@ function AdminUsersTab() {
               <p>状態: {USER_STATUS_LABELS[selected.status] ?? selected.status}</p>
               {selected.forceResetFlag && <p style={{ color: "var(--danger)" }}>※ パスワード強制リセット済み</p>}
               <p className="text-[10px] italic">※ パスワードの平文閲覧は不可（仕様）</p>
-              {/* Onboarding Profile */}
-              {obProfile.nameKanji && (
+              {/* Onboarding Profile (per-user) */}
+              {(() => { const up = getProfileForUser(selected); return up.nameKanji ? (
                 <div className="mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
                   <p className="text-[10px] font-semibold" style={{ color: "var(--accent)" }}>プロフィール情報</p>
-                  <p>本名: {obProfile.nameKanji}</p>
-                  {obProfile.nameHiragana && <p>ふりがな: {obProfile.nameHiragana}</p>}
-                  {obProfile.nameKatakana && <p>カタカナ: {obProfile.nameKatakana}</p>}
-                  {obProfile.birthdate && <p>生年月日: {obProfile.birthdate}</p>}
-                  {obProfile.gender && <p>性別: {obProfile.gender}</p>}
-                  {obProfile.area && <p>エリア: {obProfile.area}</p>}
-                  {obProfile.job && <p>職業: {obProfile.job}</p>}
-                  {obProfile.interests.length > 0 && <p>趣味: {obProfile.interests.join(", ")}</p>}
-                  {obProfile.bio && <p>自己紹介: {obProfile.bio}</p>}
+                  <p>本名: {up.nameKanji}</p>
+                  {up.nameHiragana && <p>ふりがな: {up.nameHiragana}</p>}
+                  {up.nameKatakana && <p>カタカナ: {up.nameKatakana}</p>}
+                  {up.birthdate && <p>生年月日: {up.birthdate}</p>}
+                  {up.gender && <p>性別: {up.gender}</p>}
+                  {up.area && <p>エリア: {up.area}</p>}
+                  {up.job && <p>職業: {up.job}</p>}
+                  {up.interests.length > 0 && <p>趣味: {up.interests.join(", ")}</p>}
+                  {up.bio && <p>自己紹介: {up.bio}</p>}
                 </div>
-              )}
+              ) : <p className="mt-2 text-[10px]" style={{ color: "var(--muted)" }}>プロフィール未入力</p>; })()}
             </div>
             <div className="mt-3">
               <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>管理者メモ</label>

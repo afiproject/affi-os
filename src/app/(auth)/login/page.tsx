@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { loginUser, resendVerificationEmail, getOutbox, isProfileComplete } from "@/lib/demo-store";
+import { loginUser, resendVerificationEmail, getOutbox, isProfileComplete, findAuthUserByEmail } from "@/lib/demo-store";
 import { sendEmailFromOutbox } from "@/lib/send-email";
 import { setSessionCookie } from "@/lib/session";
 
@@ -48,8 +48,9 @@ export default function LoginPage() {
     setLoading(true);
     const result = loginUser(email, password);
     if (result.ok) {
-      // Set session cookie for middleware
-      const profileDone = isProfileComplete();
+      // Check user's profileComplete flag (persisted in AuthUser record)
+      const authUser = findAuthUserByEmail(email);
+      const profileDone = authUser?.profileComplete ?? isProfileComplete();
       setSessionCookie({
         userId: email,
         email,

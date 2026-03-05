@@ -62,11 +62,11 @@ export async function POST(req: NextRequest) {
       profileComplete,
     };
 
-    const encoded = btoa(encodeURIComponent(JSON.stringify({ ...sessionData, exp: Date.now() + 24 * 60 * 60 * 1000 })));
+    const encoded = btoa(encodeURIComponent(JSON.stringify({ ...sessionData, exp: Date.now() + 30 * 24 * 60 * 60 * 1000 })));
     const response = NextResponse.json({ ok: true, profileComplete });
     response.cookies.set("sloty_session", encoded, {
       path: "/",
-      maxAge: 24 * 60 * 60,
+      maxAge: 30 * 24 * 60 * 60,
       sameSite: "lax",
       httpOnly: false, // Client needs to read it for navigation
     });

@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getOnboardingProfile, saveOnboardingProfile } from "@/lib/demo-store";
+import { getOnboardingProfile, saveOnboardingProfile, getOnboardingProfileForUser, saveOnboardingProfileForUser, markProfileComplete } from "@/lib/demo-store";
 import type { OnboardingProfile } from "@/lib/demo-store";
-import { updateSessionProfile } from "@/lib/session";
+import { updateSessionProfile, getClientSession } from "@/lib/session";
 
 const PREFECTURES = [
   "北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
@@ -27,7 +27,11 @@ const KATAKANA_RE = /^[\u30A0-\u30FF\u3000\s\u30FC]+$/;
 
 export default function OnboardingProfilePage() {
   const router = useRouter();
-  const existing = getOnboardingProfile();
+  const session = getClientSession();
+  const userId = session?.userId || session?.email || "";
+  // Load user-specific profile first, fallback to global
+  const userProfile = userId ? getOnboardingProfileForUser(userId) : null;
+  const existing = (userProfile && userProfile.displayName) ? userProfile : getOnboardingProfile();
 
   const [form, setForm] = useState<OnboardingProfile>({
     displayName: existing.displayName || "",
@@ -98,7 +102,15 @@ export default function OnboardingProfilePage() {
   function handleSubmit() {
     if (!validate()) return;
 
+    // Save per-user onboarding profile
+    if (userId) {
+      saveOnboardingProfileForUser(userId, form);
+    }
     saveOnboardingProfile(form);
+    // Mark profile complete in AuthUser record (persists across sessions)
+    if (session?.email) {
+      markProfileComplete(session.email);
+    }
     // Update session cookie to mark profile as complete
     updateSessionProfile(true);
     // Go to KYC onboarding

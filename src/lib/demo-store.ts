@@ -904,6 +904,7 @@ export type AuthUser = {
   passwordHash: string;
   displayName: string;
   emailVerified: boolean;
+  profileComplete: boolean;
   createdAt: string;
   lastLoginAt: string;
   loginCount: number;
@@ -1059,6 +1060,7 @@ export function signupUser(email: string, password: string, displayName: string)
     passwordHash: hashPassword(password),
     displayName,
     emailVerified: true,
+    profileComplete: false,
     createdAt: new Date().toISOString(),
     lastLoginAt: new Date().toISOString(),
     loginCount: 1,
@@ -1218,6 +1220,43 @@ export function saveOnboardingProfile(p: OnboardingProfile) {
 }
 
 export function isProfileComplete(): boolean {
+  // Check AuthUser's profileComplete flag (persisted per-user)
+  const session = typeof window !== "undefined" ? load<AuthSession | null>("auth_session", null) : null;
+  if (session) {
+    const user = getAuthUsers().find(u => u.id === session.userId || u.email.toLowerCase() === session.userId.toLowerCase());
+    if (user && user.profileComplete) return true;
+  }
+  // Fallback: check if onboarding data exists
   const p = getOnboardingProfile();
   return !!(p.displayName && p.nameKanji && p.nameHiragana && p.birthdate);
+}
+
+export function markProfileComplete(email: string) {
+  const users = getAuthUsers();
+  const u = users.find(x => x.email.toLowerCase() === email.toLowerCase());
+  if (u) {
+    u.profileComplete = true;
+    save("auth_users", users);
+  }
+}
+
+// --- Per-user onboarding profile ---
+export function getOnboardingProfileForUser(userId: string): OnboardingProfile {
+  return load<OnboardingProfile>(`onboarding_profile_${userId}`, EMPTY_ONBOARDING);
+}
+
+export function saveOnboardingProfileForUser(userId: string, p: OnboardingProfile) {
+  save(`onboarding_profile_${userId}`, p);
+  // Also save to the global key for backward compatibility
+  save("onboarding_profile", p);
+  // Sync to legacy DemoProfile
+  const existing = getProfile();
+  existing.displayName = p.displayName;
+  existing.birthdate = p.birthdate;
+  existing.gender = p.gender;
+  existing.job = p.job;
+  existing.hobbyTags = p.interests;
+  existing.bio = p.bio;
+  existing.bioShort = p.bio;
+  saveProfile(existing);
 }
