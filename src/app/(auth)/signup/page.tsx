@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { signupUser, getOutbox } from "@/lib/demo-store";
-import { sendEmailFromOutbox } from "@/lib/send-email";
+import { signupUser, isProfileComplete } from "@/lib/demo-store";
+import { setSessionCookie } from "@/lib/session";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -14,7 +14,6 @@ export default function SignupPage() {
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
 
   async function handleSignup() {
     setError("");
@@ -27,34 +26,23 @@ export default function SignupPage() {
     setLoading(true);
     const result = signupUser(email, password, displayName);
     if (result.ok) {
-      // Send real email via API
-      const outbox = getOutbox();
-      const mail = outbox.find(m => m.to === email && m.subject.includes("確認"));
-      if (mail) {
-        await sendEmailFromOutbox(mail.to, mail.subject, mail.body, mail.links);
+      // メール確認スキップ：そのままログイン状態にしてリダイレクト
+      const profileDone = isProfileComplete();
+      setSessionCookie({
+        userId: email,
+        email,
+        role: "USER",
+        profileComplete: profileDone,
+      });
+      if (profileDone) {
+        router.replace("/home");
+      } else {
+        router.replace("/onboarding/profile");
       }
-      setSent(true);
     } else {
       setError(result.error ?? "登録に失敗しました");
     }
     setLoading(false);
-  }
-
-  if (sent) {
-    return (
-      <div className="mx-auto max-w-sm min-h-screen flex flex-col items-center justify-center p-6">
-        <div className="card p-6 text-center w-full">
-          <p className="text-3xl">📧</p>
-          <h2 className="mt-2 text-lg font-bold">確認メールを送信しました</h2>
-          <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
-            {email} に確認メールを送信しました。メール内のリンクをクリックして登録を完了してください。
-          </p>
-          <button onClick={() => router.push("/login")} className="btn-outline w-full mt-4 text-sm">
-            ログイン画面へ
-          </button>
-        </div>
-      </div>
-    );
   }
 
   return (

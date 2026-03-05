@@ -1058,7 +1058,7 @@ export function signupUser(email: string, password: string, displayName: string)
     email,
     passwordHash: hashPassword(password),
     displayName,
-    emailVerified: false,
+    emailVerified: true,
     createdAt: new Date().toISOString(),
     lastLoginAt: new Date().toISOString(),
     loginCount: 1,
@@ -1067,8 +1067,8 @@ export function signupUser(email: string, password: string, displayName: string)
   users.push(user);
   save("auth_users", users);
   addAuthLog(user.id, email, "signup");
-  sendVerificationEmail(user.id, email);
-  return { ok: true, needVerify: true };
+  setAuthSession(user.id, email);
+  return { ok: true, needVerify: false };
 }
 
 export function loginUser(email: string, password: string): { ok: boolean; error?: string; needVerify?: boolean } {
