@@ -1,14 +1,14 @@
 "use client";
 
 /**
- * Bubble — Refined speech bubble for SLOTY plaza.
+ * Bubble — Speech bubble for SLOTY plaza.
  *
- * Design goals:
- * - "今のひとこと" feeling, not chat bubble
- * - White, clean, soft shadow
- * - Fade in/out gently
- * - Never overwhelm the park scene
- * - Sits naturally above avatar head
+ * Positioned relative to the avatar's headTop via CSS.
+ * The parent container should use `position: relative` and place
+ * the Bubble as a direct child above the AvatarFigure.
+ *
+ * Uses bottom: 100% so it always sits above whatever is below it,
+ * regardless of avatar size.
  */
 export default function Bubble({
   text,
@@ -20,10 +20,12 @@ export default function Bubble({
   if (!text) return null;
   return (
     <div
-      className="pointer-events-none absolute -top-3 left-1/2 -translate-x-1/2 -translate-y-full transition-all duration-[800ms] ease-in-out"
+      className="pointer-events-none absolute left-1/2 transition-all duration-[800ms] ease-in-out"
       style={{
+        bottom: "100%",
+        marginBottom: 4,
         opacity: visible ? 1 : 0,
-        transform: `translateX(-50%) translateY(${visible ? "-100%" : "calc(-100% + 4px)"})`,
+        transform: `translateX(-50%) translateY(${visible ? "0" : "4px"})`,
       }}
     >
       <div
