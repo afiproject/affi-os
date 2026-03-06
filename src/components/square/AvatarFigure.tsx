@@ -206,6 +206,30 @@ function renderEyes(type: number, color: string, a: Anchors) {
         <path d={`M${lx - 4},${ey + 1} Q${lx},${ey - 3} ${lx + 4},${ey + 1}`} fill="none" stroke="#3A3A4A" strokeWidth="2" strokeLinecap="round" />
         <path d={`M${rx - 4},${ey + 1} Q${rx},${ey - 3} ${rx + 4},${ey + 1}`} fill="none" stroke="#3A3A4A" strokeWidth="2" strokeLinecap="round" />
       </>);
+    case 8: // 爽やか — bright open eyes, slightly wider
+      return (<>
+        <ellipse cx={lx} cy={ey} rx={5.5} ry={6} fill="white" />
+        <ellipse cx={rx} cy={ey} rx={5.5} ry={6} fill="white" />
+        <ellipse cx={lx + 0.3} cy={ey + 0.3} rx={3.2} ry={3.8} fill={color} />
+        <ellipse cx={rx - 0.3} cy={ey + 0.3} rx={3.2} ry={3.8} fill={color} />
+        <circle cx={lx + 1.5} cy={ey - 1.5} r={1.5} fill="white" />
+        <circle cx={rx - 1.5} cy={ey - 1.5} r={1.5} fill="white" />
+        <circle cx={lx - 0.5} cy={ey + 1.5} r={0.6} fill="white" />
+        <circle cx={rx + 0.5} cy={ey + 1.5} r={0.6} fill="white" />
+        <path d={`M${lx - 5},${ey - 5} Q${lx},${ey - 7} ${lx + 5.5},${ey - 5}`} fill="none" stroke="#3A3A4A" strokeWidth="0.8" />
+        <path d={`M${rx - 5.5},${ey - 5} Q${rx},${ey - 7} ${rx + 5},${ey - 5}`} fill="none" stroke="#3A3A4A" strokeWidth="0.8" />
+      </>);
+    case 9: // ゆるい — relaxed droopy, soft
+      return (<>
+        <ellipse cx={lx} cy={ey + 1} rx={5} ry={4.5} fill="white" />
+        <ellipse cx={rx} cy={ey + 1} rx={5} ry={4.5} fill="white" />
+        <ellipse cx={lx + 0.5} cy={ey + 1.5} rx={3} ry={3.2} fill={color} />
+        <ellipse cx={rx - 0.5} cy={ey + 1.5} rx={3} ry={3.2} fill={color} />
+        <circle cx={lx + 1} cy={ey + 0.5} r={1} fill="white" />
+        <circle cx={rx - 1} cy={ey + 0.5} r={1} fill="white" />
+        <path d={`M${lx - 5},${ey - 2.5} Q${lx},${ey - 4} ${lx + 5},${ey - 1.5}`} fill="none" stroke="#5A5A6A" strokeWidth="1" strokeLinecap="round" />
+        <path d={`M${rx - 5},${ey - 1.5} Q${rx},${ey - 4} ${rx + 5},${ey - 2.5}`} fill="none" stroke="#5A5A6A" strokeWidth="1" strokeLinecap="round" />
+      </>);
     default:
       return renderEyes(0, color, a);
   }
@@ -246,6 +270,16 @@ function renderBrows(type: number, a: Anchors) {
       return (<>
         <path d={`M${lx - 3},${by} Q${lx},${by - 1} ${lx + 3},${by}`} fill="none" stroke="#8A8A9A" strokeWidth="0.8" strokeLinecap="round" />
         <path d={`M${rx - 3},${by} Q${rx},${by - 1} ${rx + 3},${by}`} fill="none" stroke="#8A8A9A" strokeWidth="0.8" strokeLinecap="round" />
+      </>);
+    case 6: // アーチ — elegant arch
+      return (<>
+        <path d={`M${lx - 4},${by + 0.5} Q${lx - 2},${by - 3} ${lx + 4},${by - 1}`} fill="none" stroke="#4A4A5A" strokeWidth="1.1" strokeLinecap="round" />
+        <path d={`M${rx - 4},${by - 1} Q${rx + 2},${by - 3} ${rx + 4},${by + 0.5}`} fill="none" stroke="#4A4A5A" strokeWidth="1.1" strokeLinecap="round" />
+      </>);
+    case 7: // しっかり — thick natural
+      return (<>
+        <path d={`M${lx - 5},${by + 0.5} Q${lx},${by - 2.5} ${lx + 5},${by}`} fill="none" stroke="#3A3A4A" strokeWidth="1.8" strokeLinecap="round" />
+        <path d={`M${rx - 5},${by} Q${rx},${by - 2.5} ${rx + 5},${by + 0.5}`} fill="none" stroke="#3A3A4A" strokeWidth="1.8" strokeLinecap="round" />
       </>);
     default:
       return renderBrows(0, a);
@@ -365,6 +399,28 @@ function renderHairBack(style: number, color: string, colorD: string, a: Anchors
       return (
         <circle cx={hx} cy={hy - rx - 5} r={9} fill={color} stroke={colorD} strokeWidth="0.5" />
       );
+    case 12: // メンズさっぱり — neat short
+      return null;
+    case 13: // メンズ無造作 — messy textured
+      return null;
+    case 14: // ゆるウェーブボブ — loose wave bob
+      return (<>
+        <path d={`M${hx - rx - 3},${hy - 3} Q${hx - rx - 6},${hy + 12} ${hx - rx},${hy + 22} Q${hx - rx - 4},${hy + 28} ${hx - rx + 5},${hy + 24}`} fill={color} />
+        <path d={`M${hx + rx + 3},${hy - 3} Q${hx + rx + 6},${hy + 12} ${hx + rx},${hy + 22} Q${hx + rx + 4},${hy + 28} ${hx + rx - 5},${hy + 24}`} fill={color} />
+      </>);
+    case 15: // 前髪なしロング — long swept back
+      return (<>
+        <path d={`M${hx - rx - 2},${hy - 5} Q${hx - rx - 4},${hy + 28} ${hx - rx + 4},${hy + 48}`} fill={color} />
+        <path d={`M${hx + rx + 2},${hy - 5} Q${hx + rx + 4},${hy + 28} ${hx + rx - 4},${hy + 48}`} fill={color} />
+        <rect x={hx - rx - 3} y={hy + 8} width={rx * 2 + 6} height={40} rx={8} fill={color} />
+      </>);
+    case 16: // 中性ボブ — neutral bob
+      return (<>
+        <path d={`M${hx - rx - 3},${hy - 3} Q${hx - rx - 5},${hy + 8} ${hx - rx + 5},${hy + 16}`} fill={color} />
+        <path d={`M${hx + rx + 3},${hy - 3} Q${hx + rx + 5},${hy + 8} ${hx + rx - 5},${hy + 16}`} fill={color} />
+      </>);
+    case 17: // 中性前髪長め — neutral long bangs
+      return null;
     default:
       return null;
   }
@@ -489,6 +545,75 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
         <path d={`M${hx - rx + 2},${a.browLine + 1} Q${hx - 5},${a.browLine + 7} ${hx + 2},${a.browLine + 4} Q${hx + 8},${a.browLine + 6} ${hx + rx - 2},${a.browLine + 2}`} fill={color} />
         <path d={`M${hx - rx - 2},${hy - 8} Q${hx - rx - 3},${hy + 3} ${hx - rx + 5},${hy + 10}`} fill={color} />
         <path d={`M${hx + rx + 2},${hy - 8} Q${hx + rx + 3},${hy + 3} ${hx + rx - 5},${hy + 10}`} fill={color} />
+      </>);
+    case 12: // メンズさっぱり — clean neat short
+      return (<>
+        {cap}
+        <path d={`M${hx - rx - 1},${hy - 8} Q${hx},${hy - ry - 6} ${hx + rx + 1},${hy - 8}`} fill={color} />
+        {/* Very short sides */}
+        <rect x={hx - rx - 1} y={hy - 8} width={4} height={10} rx={2} fill={color} />
+        <rect x={hx + rx - 3} y={hy - 8} width={4} height={10} rx={2} fill={color} />
+        {/* Subtle top texture */}
+        <path d={`M${hx - 5},${hy - ry - 2} L${hx - 3},${hy - ry - 5}`} stroke={colorD} strokeWidth="0.5" opacity="0.3" />
+        <path d={`M${hx + 3},${hy - ry - 2} L${hx + 5},${hy - ry - 5}`} stroke={colorD} strokeWidth="0.5" opacity="0.3" />
+      </>);
+    case 13: // メンズ無造作 — messy textured
+      return (<>
+        {cap}
+        <path d={`M${hx - rx - 2},${hy - 8} Q${hx - 5},${hy - ry - 10} ${hx},${hy - ry - 8} Q${hx + 5},${hy - ry - 12} ${hx + rx + 2},${hy - 8}`} fill={color} />
+        {/* Spiky bits */}
+        <path d={`M${hx - 8},${hy - ry - 3} L${hx - 10},${hy - ry - 10} L${hx - 4},${hy - ry - 5}`} fill={color} />
+        <path d={`M${hx - 2},${hy - ry - 4} L${hx},${hy - ry - 12} L${hx + 3},${hy - ry - 5}`} fill={color} />
+        <path d={`M${hx + 5},${hy - ry - 3} L${hx + 9},${hy - ry - 11} L${hx + 11},${hy - ry - 4}`} fill={color} />
+        {/* Messy bangs */}
+        <path d={`M${hx - rx + 2},${a.browLine - 1} Q${hx - 6},${a.browLine + 5} ${hx - 2},${a.browLine + 3} L${hx + 3},${a.browLine + 1} Q${hx + 8},${a.browLine + 4} ${hx + rx - 2},${a.browLine - 1}`} fill={color} />
+        <path d={`M${hx - rx - 2},${hy - 8} Q${hx - rx - 3},${hy + 2} ${hx - rx + 4},${hy + 8}`} fill={color} />
+        <path d={`M${hx + rx + 2},${hy - 8} Q${hx + rx + 3},${hy + 2} ${hx + rx - 4},${hy + 8}`} fill={color} />
+        <path d={`M${hx - 3},${hy - ry - 5} L${hx - 1},${a.browLine + 3}`} stroke={colorH} strokeWidth="0.5" opacity="0.35" />
+      </>);
+    case 14: // ゆるウェーブボブ — loose wave bob
+      return (<>
+        {cap}
+        {hairTop()}
+        <path d={`M${hx - rx + 3},${a.browLine + 1} Q${hx - 4},${a.browLine + 5} ${hx + rx - 5},${a.browLine + 2}`} fill={color} />
+        {/* Wavy sides */}
+        <path d={`M${hx - rx - 3},${hy - 8} Q${hx - rx - 5},${hy + 5} ${hx - rx - 2},${hy + 12} Q${hx - rx - 5},${hy + 18} ${hx - rx + 3},${hy + 22}`} fill={color} />
+        <path d={`M${hx + rx + 3},${hy - 8} Q${hx + rx + 5},${hy + 5} ${hx + rx + 2},${hy + 12} Q${hx + rx + 5},${hy + 18} ${hx + rx - 3},${hy + 22}`} fill={color} />
+        <path d={`M${hx - rx - 1},${hy + 10} Q${hx - rx - 3},${hy + 12} ${hx - rx},${hy + 14}`} stroke={colorH} strokeWidth="0.5" opacity="0.3" />
+        <path d={`M${hx + rx + 1},${hy + 10} Q${hx + rx + 3},${hy + 12} ${hx + rx},${hy + 14}`} stroke={colorH} strokeWidth="0.5" opacity="0.3" />
+      </>);
+    case 15: // 前髪なしロング — long no bangs
+      return (<>
+        {cap}
+        <path d={`M${hx - rx - 2},${hy - 10} Q${hx},${hy - ry - 8} ${hx + rx + 2},${hy - 10}`} fill={color} />
+        {/* No bangs — forehead visible, hair swept to sides */}
+        <path d={`M${hx - rx},${hy - ry * 0.1} Q${hx - rx - 3},${hy - 4} ${hx - rx - 2},${hy - 10}`} fill={color} />
+        <path d={`M${hx + rx},${hy - ry * 0.1} Q${hx + rx + 3},${hy - 4} ${hx + rx + 2},${hy - 10}`} fill={color} />
+        {/* Side hair flowing down */}
+        <path d={`M${hx - rx - 2},${hy - 8} L${hx - rx - 3},${hy + 20}`} stroke={color} strokeWidth="5" strokeLinecap="round" />
+        <path d={`M${hx + rx + 2},${hy - 8} L${hx + rx + 3},${hy + 20}`} stroke={color} strokeWidth="5" strokeLinecap="round" />
+      </>);
+    case 16: // 中性ボブ — neutral bob, slightly asymmetric
+      return (<>
+        {cap}
+        <path d={`M${hx - rx - 2},${hy - 8} Q${hx},${hy - ry - 7} ${hx + rx + 2},${hy - 8}`} fill={color} />
+        {/* Asymmetric bangs — longer on left */}
+        <path d={`M${hx - rx + 1},${a.browLine + 3} Q${hx - 5},${a.browLine + 7} ${hx + 2},${a.browLine + 5} Q${hx + 8},${a.browLine + 3} ${hx + rx - 1},${a.browLine}`} fill={color} />
+        {/* Bob sides — left slightly longer */}
+        <path d={`M${hx - rx - 2},${hy - 8} Q${hx - rx - 4},${hy + 8} ${hx - rx + 6},${hy + 18}`} fill={color} />
+        <path d={`M${hx + rx + 2},${hy - 8} Q${hx + rx + 4},${hy + 6} ${hx + rx - 6},${hy + 14}`} fill={color} />
+        <path d={`M${hx - 4},${a.browLine + 4} L${hx - 2},${a.browLine + 7}`} stroke={colorH} strokeWidth="0.5" opacity="0.3" />
+      </>);
+    case 17: // 中性前髪長め — neutral with long side-swept bangs
+      return (<>
+        {cap}
+        <path d={`M${hx - rx - 2},${hy - 8} Q${hx},${hy - ry - 7} ${hx + rx + 2},${hy - 8}`} fill={color} />
+        {/* Long side-swept bangs covering one eye area */}
+        <path d={`M${hx - rx},${hy - 10} Q${hx - 8},${a.eyeLine - 2} ${hx - 2},${a.eyeLine + 2} Q${hx + 5},${a.browLine + 2} ${hx + rx},${a.browLine - 1}`} fill={color} />
+        {/* Medium length sides */}
+        <path d={`M${hx - rx - 2},${hy - 8} Q${hx - rx - 4},${hy + 5} ${hx - rx + 3},${hy + 15}`} fill={color} />
+        <path d={`M${hx + rx + 2},${hy - 8} Q${hx + rx + 4},${hy + 5} ${hx + rx - 3},${hy + 15}`} fill={color} />
+        <path d={`M${hx - 6},${a.browLine} L${hx - 4},${a.eyeLine}`} stroke={colorH} strokeWidth="0.6" opacity="0.35" />
       </>);
     default:
       return renderHairFront(0, color, colorD, colorH, a);
@@ -775,6 +900,23 @@ function renderAccessory(type: number, a: Anchors) {
         <path d={`M${hx - 2},${hy - ry - 2} Q${hx - 10},${hy - ry - 10} ${hx - 2},${hy - ry - 5}`} fill="#FF6B8A" />
         <path d={`M${hx + 2},${hy - ry - 2} Q${hx + 10},${hy - ry - 10} ${hx + 2},${hy - ry - 5}`} fill="#FF6B8A" />
         <circle cx={hx} cy={hy - ry - 3} r={2} fill="#FF4570" />
+      </>);
+    case 9: // ミニバッグ — small crossbody bag
+      {
+        const bagX = hx + rx + 8;
+        const bagY = a.bodyBottom - 4;
+        return (<>
+          <line x1={hx - 5} y1={a.shoulderLine + 2} x2={bagX} y2={bagY} stroke="#8B7355" strokeWidth="1" />
+          <rect x={bagX - 5} y={bagY - 3} width={10} height={8} rx={2} fill="#A0845C" />
+          <rect x={bagX - 4} y={bagY - 1} width={3} height={1.5} rx={0.5} fill="#8B7355" />
+        </>);
+      }
+    case 10: // イヤリング — drop earrings
+      return (<>
+        <line x1={hx - rx + 2} y1={hy + 5} x2={hx - rx + 1} y2={hy + 10} stroke="#D4AF37" strokeWidth="0.6" />
+        <circle cx={hx - rx + 1} cy={hy + 11} r={2} fill="#D4AF37" />
+        <line x1={hx + rx - 2} y1={hy + 5} x2={hx + rx - 1} y2={hy + 10} stroke="#D4AF37" strokeWidth="0.6" />
+        <circle cx={hx + rx - 1} cy={hy + 11} r={2} fill="#D4AF37" />
       </>);
     default:
       return null;

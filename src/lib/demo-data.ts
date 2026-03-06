@@ -430,15 +430,15 @@ export type AvatarStyle = {
   base: BaseBody;       // "male" | "female" | "neutral"
   // ── 顔 ──
   faceShape: number;    // 0=まる 1=たまご 2=やや角 3=ほそめ
-  eyeType: number;      // 0=まる 1=たれ目 2=つり目 3=細め 4=キラキラ 5=ジト目 6=半目 7=にっこり
+  eyeType: number;      // 0=まる 1=たれ目 2=つり目 3=細め 4=キラキラ 5=ジト目 6=半目 7=にっこり 8=爽やか 9=ゆるい
   eyeColor: string;     // hex
-  browType: number;     // 0=ナチュラル 1=平行 2=困り 3=キリッ 4=太め 5=薄め
+  browType: number;     // 0=ナチュラル 1=平行 2=困り 3=キリッ 4=太め 5=薄め 6=アーチ 7=しっかり
   mouthType: number;    // 0=微笑み 1=にっこり 2=真顔 3=ちょい不満 4=ニヤリ 5=への字 6=ぽかん 7=にー
   cheekType: number;    // 0=まるチーク 1=ほんのり 2=なし 3=そばかす
   cheekColor: string;   // hex
   noseType: number;     // 0=ちょん 1=まるぽち 2=なし
   // ── 髪 ──
-  hairStyle: number;    // 0-11 (12 styles)
+  hairStyle: number;    // 0-17 (18 styles)
   hairColor: string;    // hex
   // ── 体型 ──
   bodyType: number;     // 0=標準 1=小柄 2=細身 3=がっしり
@@ -449,7 +449,7 @@ export type AvatarStyle = {
   bottomType: number;   // 0-7 (8 types)
   bottomColor: string;  // hex
   // ── 小物 ──
-  accessory: number;    // 0=なし 1=丸メガネ 2=四角メガネ 3=キャップ 4=ニット帽 5=ヘッドホン 6=ピアス 7=マフラー 8=リボン
+  accessory: number;    // 0=なし 1=丸メガネ 2=四角メガネ 3=キャップ 4=ニット帽 5=ヘッドホン 6=ピアス 7=マフラー 8=リボン 9=ミニバッグ 10=イヤリング
 };
 
 // ── デフォルトアバタースタイル ──
@@ -549,7 +549,7 @@ export const DEMO_SQUARE_VISITORS: SquareVisitor[] = [
   {
     // Path intersection area — left
     id: "sv-6", userId: "user-f", displayName: "りょう", gender: "男性",
-    avatarStyle: _base({ base: "male", faceShape: 0, eyeType: 5, browType: 4, mouthType: 3, hairStyle: 1, hairColor: "#2C2C2C", skinTone: "#F5CBA7", topType: 0, topColor: "#667eea", bottomType: 0, bottomColor: "#3D3D5C" }),
+    avatarStyle: _base({ base: "male", faceShape: 0, eyeType: 8, browType: 7, mouthType: 3, hairStyle: 13, hairColor: "#2C2C2C", skinTone: "#F5CBA7", topType: 0, topColor: "#667eea", bottomType: 0, bottomColor: "#3D3D5C" }),
     bubble: "ちょい暇", mode: "call", tags: ["雑談", "ゲーム"], verified: true,
     availability: "1時間OK", area: "渋谷", bio: "デザイナーやってます。ゲーム雑談なんでも",
     ratingAvg: 4.4, ratingCount: 18, x: 35, y: 37, lastActive: new Date(Date.now() - 2 * 60_000).toISOString(),
@@ -557,7 +557,7 @@ export const DEMO_SQUARE_VISITORS: SquareVisitor[] = [
   {
     // Near right tree — observing from a distance
     id: "sv-7", userId: "user-g", displayName: "ことね", gender: "女性",
-    avatarStyle: _base({ base: "female", faceShape: 0, eyeType: 7, browType: 0, mouthType: 1, hairStyle: 9, hairColor: "#8B4513", skinTone: "#FFE0BD", topType: 7, topColor: "#FF6B6B", bottomType: 4, bottomColor: "#4A4A6A", accessory: 6 }),
+    avatarStyle: _base({ base: "female", faceShape: 0, eyeType: 9, browType: 6, mouthType: 1, hairStyle: 14, hairColor: "#8B4513", skinTone: "#FFE0BD", topType: 7, topColor: "#FF6B6B", bottomType: 4, bottomColor: "#4A4A6A", accessory: 10 }),
     bubble: "カフェ行ける人", mode: "in_person", tags: ["カフェ"], verified: false,
     availability: "今からOK", area: "新宿", bio: "カフェ巡りが趣味です☕",
     ratingAvg: 4.2, ratingCount: 8, x: 85, y: 42, lastActive: new Date(Date.now() - 4 * 60_000).toISOString(),
@@ -565,7 +565,7 @@ export const DEMO_SQUARE_VISITORS: SquareVisitor[] = [
   {
     // Near left tree — slightly apart
     id: "sv-8", userId: "user-h", displayName: "そうた", gender: "男性",
-    avatarStyle: _base({ base: "male", faceShape: 0, eyeType: 6, browType: 5, mouthType: 5, hairStyle: 2, hairColor: "#1A1A2E", skinTone: "#F0C8A0", topType: 2, topColor: "#2C2C2C", bottomType: 0, bottomColor: "#3A3A5E", accessory: 2, cheekType: 2 }),
+    avatarStyle: _base({ base: "male", faceShape: 0, eyeType: 6, browType: 5, mouthType: 5, hairStyle: 12, hairColor: "#1A1A2E", skinTone: "#F0C8A0", topType: 2, topColor: "#2C2C2C", bottomType: 0, bottomColor: "#3A3A5E", accessory: 2, cheekType: 2 }),
     bubble: "30分だけOK", mode: "either", tags: ["相談", "作業"], verified: true,
     availability: "30分OK", area: "", bio: "フリーランスエンジニア。気軽にどうぞ",
     ratingAvg: 4.7, ratingCount: 35, x: 15, y: 40, lastActive: new Date(Date.now() - 7 * 60_000).toISOString(),
@@ -574,9 +574,9 @@ export const DEMO_SQUARE_VISITORS: SquareVisitor[] = [
 
 // ===== ピグ風着せ替えオプション =====
 export const FACE_SHAPE_NAMES = ["まる", "たまご", "やや角", "ほそめ"];
-export const EYE_TYPE_NAMES = ["まる", "たれ目", "つり目", "細め", "キラキラ", "ジト目", "半目", "にっこり"];
+export const EYE_TYPE_NAMES = ["まる", "たれ目", "つり目", "細め", "キラキラ", "ジト目", "半目", "にっこり", "爽やか", "ゆるい"];
 export const EYE_COLORS = ["#2A2A3A", "#4A3520", "#5A4030", "#1A1A2E", "#6B3FA0", "#4A6B5A"];
-export const BROW_TYPE_NAMES = ["ナチュラル", "平行", "困り", "キリッ", "太め", "薄め"];
+export const BROW_TYPE_NAMES = ["ナチュラル", "平行", "困り", "キリッ", "太め", "薄め", "アーチ", "しっかり"];
 export const MOUTH_TYPE_NAMES = ["微笑み", "にっこり", "真顔", "ちょい不満", "ニヤリ", "への字", "ぽかん", "にー"];
 export const CHEEK_TYPE_NAMES = ["まるチーク", "ほんのり", "なし", "そばかす"];
 export const CHEEK_COLORS = ["#FFB4B4", "#FFBCBC", "#F5B0D0", "#F0C0A0", "#E8C0A8", "#E8B8A0", "#E0B8A0", "#00000000"];
@@ -586,8 +586,17 @@ export const HAIR_STYLE_NAMES = [
   "メンズショート", "メンズマッシュ", "メンズセンターパート", "メンズ前髪重め",
   "ボブ", "ミディアム", "ロングストレート", "ロングウェーブ",
   "ツインテ", "ポニーテール", "おだんご", "中性ショート",
+  "メンズさっぱり", "メンズ無造作", "ゆるウェーブボブ", "前髪なしロング",
+  "中性ボブ", "中性前髪長め",
 ];
-export const HAIR_COLORS = ["#1A1A2E", "#2C2C2C", "#5C3317", "#8B4513", "#D4A574", "#C8A882", "#E8C870", "#9B8E8E", "#6B3FA0", "#C0392B"];
+export const HAIR_COLORS = [
+  "#1A1A2E", "#2C2C2C", "#3A2010",  // 黒系
+  "#5C3317", "#8B4513", "#A0522D",   // ブラウン系
+  "#D4A574", "#C8A882",              // ライトブラウン
+  "#E8C870", "#D4B896",              // 金・アッシュ
+  "#9B8E8E", "#8A9B9B",              // アッシュ系
+  "#6B3FA0", "#C0392B",              // 遊び色
+];
 export const BODY_TYPE_NAMES = ["標準", "小柄", "細身", "がっしり"];
 export const SKIN_TONES = ["#FFDBB4", "#F5CBA7", "#F0C8A0", "#FFE0BD", "#D4A574", "#C19A6B"];
 
@@ -602,23 +611,30 @@ export const BOTTOM_TYPE_NAMES = [
   "ミニスカート", "ロングスカート", "サロペット", "レギンス",
 ];
 export const BOTTOM_COLORS = ["#3A3A5E", "#3D3D5C", "#4A4A6A", "#4B4B7A", "#5C5C8A", "#2C2C2C", "#7B8CFF", "#C4956A"];
-export const ACCESSORY_NAMES = ["なし", "丸メガネ", "四角メガネ", "キャップ", "ニット帽", "ヘッドホン", "ピアス", "マフラー", "リボン"];
+export const ACCESSORY_NAMES = ["なし", "丸メガネ", "四角メガネ", "キャップ", "ニット帽", "ヘッドホン", "ピアス", "マフラー", "リボン", "ミニバッグ", "イヤリング"];
 
 // ── プリセットテンプレート（初回30秒で選べる） ──
 export type AvatarPreset = { name: string; style: AvatarStyle };
 export const AVATAR_PRESETS: AvatarPreset[] = [
+  // ── 女性ベース ──
   { name: "やさしい女子", style: _base({ base: "female", faceShape: 0, eyeType: 1, browType: 0, mouthType: 0, hairStyle: 5, hairColor: "#5C3317", topType: 7, topColor: "#F8A4C8", bottomType: 4, bottomColor: "#4A4A6A" }) },
-  { name: "さっぱり男子", style: _base({ base: "male", faceShape: 2, eyeType: 2, browType: 3, mouthType: 2, hairStyle: 0, hairColor: "#2C2C2C", topType: 0, topColor: "#4facfe", bottomType: 0, bottomColor: "#3D3D5C" }) },
-  { name: "ふんわり系", style: _base({ base: "female", faceShape: 1, eyeType: 4, browType: 1, mouthType: 1, hairStyle: 7, hairColor: "#D4A574", topType: 5, topColor: "#E8F0E8", bottomType: 5, bottomColor: "#5C5C8A" }) },
+  { name: "ふんわり系", style: _base({ base: "female", faceShape: 1, eyeType: 4, browType: 6, mouthType: 1, hairStyle: 7, hairColor: "#D4A574", topType: 5, topColor: "#E8F0E8", bottomType: 5, bottomColor: "#5C5C8A" }) },
+  { name: "おしゃれ女子", style: _base({ base: "female", faceShape: 1, eyeType: 8, browType: 0, mouthType: 1, hairStyle: 4, hairColor: "#8B4513", topType: 6, topColor: "#a18cd1", bottomType: 4, bottomColor: "#4B4B7A", accessory: 10 }) },
+  { name: "キュート", style: _base({ base: "female", faceShape: 0, eyeType: 4, browType: 0, mouthType: 1, hairStyle: 8, hairColor: "#C0392B", topType: 10, topColor: "#f093fb", bottomType: 4, bottomColor: "#3A3A5E", accessory: 8 }) },
+  { name: "ほんわか", style: _base({ base: "female", faceShape: 0, eyeType: 9, browType: 2, mouthType: 0, hairStyle: 10, hairColor: "#8B4513", topType: 5, topColor: "#43e97b", bottomType: 5, bottomColor: "#4A4A6A" }) },
+  { name: "大人かわいい", style: _base({ base: "female", faceShape: 1, eyeType: 8, browType: 6, mouthType: 0, hairStyle: 15, hairColor: "#3A2010", topType: 2, topColor: "#E0F7FA", bottomType: 5, bottomColor: "#3A3A5E", accessory: 9 }) },
+  // ── 男性ベース ──
+  { name: "さっぱり男子", style: _base({ base: "male", faceShape: 2, eyeType: 8, browType: 3, mouthType: 2, hairStyle: 12, hairColor: "#2C2C2C", topType: 0, topColor: "#4facfe", bottomType: 0, bottomColor: "#3D3D5C" }) },
   { name: "クール系", style: _base({ base: "male", faceShape: 2, eyeType: 3, browType: 3, mouthType: 4, hairStyle: 2, hairColor: "#1A1A2E", topType: 9, topColor: "#2C2C2C", bottomType: 0, bottomColor: "#3A3A5E" }) },
   { name: "元気ボーイ", style: _base({ base: "male", faceShape: 0, eyeType: 0, browType: 0, mouthType: 0, hairStyle: 1, hairColor: "#2C2C2C", topType: 4, topColor: "#FF6B6B", bottomType: 2, bottomColor: "#3D3D5C", accessory: 3 }) },
-  { name: "おしゃれ女子", style: _base({ base: "female", faceShape: 1, eyeType: 4, browType: 0, mouthType: 1, hairStyle: 4, hairColor: "#8B4513", topType: 6, topColor: "#a18cd1", bottomType: 4, bottomColor: "#4B4B7A", accessory: 6 }) },
-  { name: "中性的", style: _base({ base: "neutral", faceShape: 1, eyeType: 1, browType: 1, mouthType: 0, hairStyle: 11, hairColor: "#C8A882", topType: 3, topColor: "#667eea", bottomType: 1, bottomColor: "#4A4A6A" }) },
-  { name: "メガネ男子", style: _base({ base: "male", faceShape: 2, eyeType: 3, browType: 4, mouthType: 2, hairStyle: 3, hairColor: "#2C2C2C", topType: 2, topColor: "#E0F7FA", bottomType: 0, bottomColor: "#3A3A5E", accessory: 1 }) },
-  { name: "ねむねむ", style: _base({ base: "neutral", faceShape: 0, eyeType: 6, browType: 2, mouthType: 5, hairStyle: 1, hairColor: "#5C3317", topType: 3, topColor: "#FFF3E0", bottomType: 3, bottomColor: "#5C5C8A" }) },
-  { name: "キュート", style: _base({ base: "female", faceShape: 0, eyeType: 4, browType: 0, mouthType: 1, hairStyle: 8, hairColor: "#C0392B", topType: 10, topColor: "#f093fb", bottomType: 4, bottomColor: "#3A3A5E", accessory: 8 }) },
-  { name: "ワイルド", style: _base({ base: "male", faceShape: 2, eyeType: 5, browType: 4, mouthType: 4, hairStyle: 0, hairColor: "#1A1A2E", skinTone: "#D4A574", topType: 8, topColor: "#2C2C2C", bottomType: 0, bottomColor: "#2C2C2C" }) },
-  { name: "ほんわか", style: _base({ base: "female", faceShape: 0, eyeType: 7, browType: 2, mouthType: 0, hairStyle: 10, hairColor: "#8B4513", topType: 5, topColor: "#43e97b", bottomType: 5, bottomColor: "#4A4A6A" }) },
+  { name: "メガネ男子", style: _base({ base: "male", faceShape: 2, eyeType: 3, browType: 7, mouthType: 2, hairStyle: 3, hairColor: "#2C2C2C", topType: 2, topColor: "#E0F7FA", bottomType: 0, bottomColor: "#3A3A5E", accessory: 1 }) },
+  { name: "ワイルド", style: _base({ base: "male", faceShape: 2, eyeType: 5, browType: 4, mouthType: 4, hairStyle: 13, hairColor: "#1A1A2E", skinTone: "#D4A574", topType: 8, topColor: "#2C2C2C", bottomType: 0, bottomColor: "#2C2C2C" }) },
+  { name: "ラフ男子", style: _base({ base: "male", faceShape: 0, eyeType: 6, browType: 5, mouthType: 5, hairStyle: 13, hairColor: "#5C3317", topType: 3, topColor: "#FFF3E0", bottomType: 1, bottomColor: "#3D3D5C" }) },
+  // ── 中性ベース ──
+  { name: "中性的", style: _base({ base: "neutral", faceShape: 1, eyeType: 1, browType: 1, mouthType: 0, hairStyle: 16, hairColor: "#C8A882", topType: 3, topColor: "#667eea", bottomType: 1, bottomColor: "#4A4A6A" }) },
+  { name: "ねむねむ", style: _base({ base: "neutral", faceShape: 0, eyeType: 9, browType: 2, mouthType: 5, hairStyle: 17, hairColor: "#5C3317", topType: 3, topColor: "#FFF3E0", bottomType: 3, bottomColor: "#5C5C8A" }) },
+  { name: "ナチュラル", style: _base({ base: "neutral", faceShape: 3, eyeType: 7, browType: 6, mouthType: 0, hairStyle: 14, hairColor: "#8B4513", topType: 5, topColor: "#E8F0E8", bottomType: 7, bottomColor: "#4A4A6A" }) },
+  { name: "ミステリアス", style: _base({ base: "neutral", faceShape: 1, eyeType: 2, browType: 5, mouthType: 2, hairStyle: 17, hairColor: "#1A1A2E", topType: 0, topColor: "#2C2C2C", bottomType: 0, bottomColor: "#3A3A5E" }) },
 ];
 
 export const BUBBLE_TEMPLATES = [
