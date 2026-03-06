@@ -107,6 +107,9 @@ export default function AvatarFigure({
         <ellipse cx={a.headCx - a.headRx + 2} cy={a.headCy + 2} rx={2.5} ry={3} fill={skinD} opacity={0.2} />
         <ellipse cx={a.headCx + a.headRx - 2} cy={a.headCy + 2} rx={2.5} ry={3} fill={skinD} opacity={0.2} />
 
+        {/* Hair cap — BEHIND face so face features are visible */}
+        {renderHairCap(hairColor, a)}
+
         <g data-part="face">
           {renderBrows(browType, a)}
           {renderEyes(eyeType, eyeColor, a)}
@@ -427,16 +430,23 @@ function renderHairBack(style: number, color: string, colorD: string, a: Anchors
 }
 
 /* ══════════════════════════════════════════════════════
+   HAIR — cap layer (behind face, on top of head)
+   Rendered BEFORE face features so eyes/mouth stay visible
+   ══════════════════════════════════════════════════════ */
+
+function renderHairCap(color: string, a: Anchors) {
+  const { headCx: hx, headCy: hy, headRx: rx, headRy: ry } = a;
+  // Covers crown of head only — stops above brow area so face skin shows correctly
+  return <ellipse cx={hx} cy={hy - ry * 0.45} rx={rx + 2} ry={ry * 0.4} fill={color} />;
+}
+
+/* ══════════════════════════════════════════════════════
    HAIR — front layer (over face)
+   Bangs and side strands only — cap is rendered separately
    ══════════════════════════════════════════════════════ */
 
 function renderHairFront(style: number, color: string, colorD: string, colorH: string, a: Anchors) {
   const { headCx: hx, headCy: hy, headRx: rx, headRy: ry } = a;
-
-  // Common hair cap (top of head) — adapts to face shape
-  const cap = (
-    <ellipse cx={hx} cy={hy - ry * 0.3} rx={rx + 3} ry={ry * 0.55} fill={color} />
-  );
 
   // Hair top curve — common to most styles, adapts to faceRx/faceRy
   const hairTop = (extraHeight = 8) => (
@@ -446,7 +456,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
   switch (style) {
     case 0: // メンズショート
       return (<>
-        {cap}
         <path d={`M${hx - rx - 1},${hy - 10} Q${hx - 10},${hy - ry - 8} ${hx},${hy - ry - 4} Q${hx + 8},${hy - ry - 10} ${hx + rx + 1},${hy - 10}`} fill={color} />
         <path d={`M${hx - 8},${hy - ry - 2} L${hx - 5},${hy - ry - 7} L${hx - 2},${hy - ry - 3}`} fill={colorD} opacity="0.3" />
         <path d={`M${hx + 2},${hy - ry - 3} L${hx + 6},${hy - ry - 9} L${hx + 10},${hy - ry - 2}`} fill={colorD} opacity="0.3" />
@@ -455,7 +464,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       </>);
     case 1: // メンズマッシュ
       return (<>
-        {cap}
         <path d={`M${hx - rx - 2},${hy - 5} Q${hx - rx + 5},${hy - ry - 5} ${hx},${hy - ry - 6} Q${hx + rx - 5},${hy - ry - 5} ${hx + rx + 2},${hy - 5}`} fill={color} />
         {/* Heavy bangs — positioned relative to browLine */}
         <path d={`M${hx - rx},${hy - 8} Q${hx - 8},${a.browLine + 5} ${hx},${a.browLine + 6} Q${hx + 8},${a.browLine + 5} ${hx + rx},${hy - 8}`} fill={color} />
@@ -464,7 +472,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       </>);
     case 2: // メンズセンターパート
       return (<>
-        {cap}
         <path d={`M${hx - rx - 2},${hy - 5} Q${hx - rx + 5},${hy - ry - 6} ${hx},${hy - ry - 8} Q${hx + rx - 5},${hy - ry - 6} ${hx + rx + 2},${hy - 5}`} fill={color} />
         <path d={`M${hx},${hy - ry - 5} Q${hx - 12},${hy - 8} ${hx - rx},${a.browLine + 4}`} fill={color} />
         <path d={`M${hx},${hy - ry - 5} Q${hx + 12},${hy - 8} ${hx + rx},${a.browLine + 4}`} fill={color} />
@@ -474,7 +481,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       </>);
     case 3: // メンズ前髪重め
       return (<>
-        {cap}
         <path d={`M${hx - rx - 1},${a.browLine + 4} Q${hx},${hy - ry - 10} ${hx + rx + 1},${a.browLine + 4}`} fill={color} />
         {/* Very heavy straight bangs — covers brows, positioned relative to eyeLine */}
         <rect x={hx - rx + 2} y={hy - 12} width={rx * 2 - 4} height={a.eyeLine - hy + 12} rx={4} fill={color} />
@@ -482,7 +488,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       </>);
     case 4: // ボブ
       return (<>
-        {cap}
         {hairTop()}
         <path d={`M${hx - rx - 3},${hy - 10} Q${hx - rx - 5},${hy + 10} ${hx - rx + 8},${hy + 18}`} fill={color} />
         <path d={`M${hx + rx + 3},${hy - 10} Q${hx + rx + 5},${hy + 10} ${hx + rx - 8},${hy + 18}`} fill={color} />
@@ -491,7 +496,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       </>);
     case 5: // ミディアム
       return (<>
-        {cap}
         {hairTop()}
         <path d={`M${hx - rx - 3},${hy - 10} Q${hx - rx - 6},${hy + 15} ${hx - rx + 3},${hy + 30}`} fill={color} />
         <path d={`M${hx + rx + 3},${hy - 10} Q${hx + rx + 6},${hy + 15} ${hx + rx - 3},${hy + 30}`} fill={color} />
@@ -499,7 +503,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       </>);
     case 6: // ロングストレート
       return (<>
-        {cap}
         {hairTop()}
         <path d={`M${hx - rx + 3},${a.browLine + 1} Q${hx},${a.browLine + 6} ${hx + rx - 3},${a.browLine + 1}`} fill={color} />
         <path d={`M${hx - rx - 2},${hy - 8} L${hx - rx - 3},${hy + 20}`} stroke={color} strokeWidth="5" strokeLinecap="round" />
@@ -507,7 +510,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       </>);
     case 7: // ロングウェーブ
       return (<>
-        {cap}
         {hairTop()}
         <path d={`M${hx - rx + 5},${a.browLine + 1} Q${hx - 3},${a.browLine + 6} ${hx + rx - 8},${a.browLine + 2}`} fill={color} />
         <path d={`M${hx - rx - 2},${hy - 8} Q${hx - rx - 5},${hy + 5} ${hx - rx},${hy + 15} Q${hx - rx - 5},${hy + 25} ${hx - rx + 2},${hy + 32}`} fill={color} />
@@ -515,7 +517,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       </>);
     case 8: // ツインテ
       return (<>
-        {cap}
         <path d={`M${hx - rx - 2},${hy - 10} Q${hx},${hy - ry - 8} ${hx + rx + 2},${hy - 10}`} fill={color} />
         <path d={`M${hx - rx + 4},${a.browLine + 1} Q${hx},${a.browLine + 5} ${hx + rx - 4},${a.browLine + 1}`} fill={color} />
         <circle cx={hx - rx + 1} cy={hy - 10} r={3} fill="#FF8888" />
@@ -523,7 +524,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       </>);
     case 9: // ポニーテール
       return (<>
-        {cap}
         <path d={`M${hx - rx - 2},${hy - 10} Q${hx},${hy - ry - 8} ${hx + rx + 2},${hy - 10}`} fill={color} />
         <path d={`M${hx - rx + 5},${a.browLine} Q${hx - 2},${a.browLine + 5} ${hx + rx - 5},${a.browLine + 2}`} fill={color} />
         <circle cx={hx + 8} cy={hy - rx - 2} r={2.5} fill="#FF8888" />
@@ -531,7 +531,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       </>);
     case 10: // おだんご
       return (<>
-        {cap}
         <path d={`M${hx - rx - 2},${hy - 10} Q${hx},${hy - ry - 8} ${hx + rx + 2},${hy - 10}`} fill={color} />
         <path d={`M${hx - rx + 4},${a.browLine + 1} Q${hx},${a.browLine + 6} ${hx + rx - 4},${a.browLine + 1}`} fill={color} />
         <circle cx={hx + 2} cy={hy - rx - 5} r={3} fill={colorH} opacity="0.3" />
@@ -540,7 +539,6 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       </>);
     case 11: // 中性ショート
       return (<>
-        {cap}
         <path d={`M${hx - rx - 2},${hy - 8} Q${hx},${hy - ry - 7} ${hx + rx + 2},${hy - 8}`} fill={color} />
         <path d={`M${hx - rx + 2},${a.browLine + 1} Q${hx - 5},${a.browLine + 7} ${hx + 2},${a.browLine + 4} Q${hx + 8},${a.browLine + 6} ${hx + rx - 2},${a.browLine + 2}`} fill={color} />
         <path d={`M${hx - rx - 2},${hy - 8} Q${hx - rx - 3},${hy + 3} ${hx - rx + 5},${hy + 10}`} fill={color} />
