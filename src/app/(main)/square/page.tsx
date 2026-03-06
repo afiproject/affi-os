@@ -158,7 +158,7 @@ export default function SquarePage() {
         {/* ── Visitor avatars ── */}
         {visitors.map((v) => {
           const zIndex = Math.round(v.y + v.dy);
-          const avatarSize = 56 + Math.round((v.y / 100) * 12); // Slightly larger in foreground
+          const avatarSize = 62 + Math.round((v.y / 100) * 16); // Pigg avatars — bigger heads, more visible
 
           return (
             <button
