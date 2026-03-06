@@ -172,13 +172,14 @@ export default function SquarePage() {
                 zIndex,
               }}
             >
-              {/* Bubble — unfliped so text reads correctly */}
-              <div style={{ transform: `scaleX(${v.facing === "left" ? -1 : 1})` }}>
-                <Bubble text={v.bubble} visible={v.showBubble} />
-              </div>
-
-              {/* Avatar with hover glow */}
+              {/* Avatar wrapper — relative so Bubble uses bottom:100% */}
               <div className="relative">
+                {/* Bubble — unflipped so text reads correctly */}
+                <div style={{ transform: `scaleX(${v.facing === "left" ? -1 : 1})` }}>
+                  <Bubble text={v.bubble} visible={v.showBubble} />
+                </div>
+
+                {/* Hover glow */}
                 <div
                   className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                   style={{
@@ -190,7 +191,7 @@ export default function SquarePage() {
                 <AvatarFigure style={v.avatarStyle} size={avatarSize} animate="idle" />
               </div>
 
-              {/* Name tag — unfliped */}
+              {/* Name tag — unflipped */}
               <p
                 className="mt-0.5 text-center text-[10px] font-semibold leading-none"
                 style={{
