@@ -89,7 +89,7 @@ export default function MyPage() {
 
       {/* Quick status */}
       <div className="mt-4 grid grid-cols-3 gap-2">
-        <Link href="/mypage" className="flex flex-col items-center gap-1 rounded-xl py-3" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
+        <Link href="/tickets" className="flex flex-col items-center gap-1 rounded-xl py-3" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
           <span className="text-lg font-bold" style={{ color: "var(--accent)" }}>{tickets}</span>
           <span className="text-[10px]" style={{ color: "var(--muted)" }}>🎫 チケット</span>
         </Link>
@@ -122,7 +122,7 @@ export default function MyPage() {
         <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
           <MenuRow label="出品管理" href="/market/sell" icon="🏪" />
           <MenuRow label="予約管理" href="/bookings" icon="📋" border />
-          <MenuRow label="チケット・課金" href="/profile#tickets" icon="🎫" border />
+          <MenuRow label="チケット・課金" href="/tickets" icon="🎫" border />
           <MenuRow label="本人確認" href="/verify" icon="🪪" border />
         </div>
       </div>

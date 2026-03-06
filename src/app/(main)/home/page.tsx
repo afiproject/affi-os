@@ -19,6 +19,8 @@ export default function HomePage() {
   const [kycDone, setKycDone] = useState(false);
   const [slots, setSlots] = useState<ReturnType<typeof getSlots>>([]);
   const [showAnnouncements, setShowAnnouncements] = useState(false);
+  const [showAllSlots, setShowAllSlots] = useState(false);
+  const [allSlots, setAllSlots] = useState<ReturnType<typeof getSlots>>([]);
 
   useEffect(() => {
     const session = getAuthSession();
@@ -31,7 +33,9 @@ export default function HomePage() {
     }
     setTickets(getTicketBalance());
     setKycDone(!!getKycImage("selfie"));
-    setSlots(getSlots().filter((s) => s.status === "listed").slice(0, 4));
+    const listed = getSlots().filter((s) => s.status === "listed");
+    setAllSlots(listed);
+    setSlots(listed.slice(0, 4));
   }, []);
 
   const announcements = [
@@ -140,7 +144,7 @@ export default function HomePage() {
       {/* ── Mini status bar ── */}
       <div className="mt-5 flex items-center gap-3">
         <Link
-          href="/mypage"
+          href="/tickets"
           className="flex flex-1 items-center gap-2 rounded-xl px-3 py-2.5"
           style={{ backgroundColor: "var(--accent-soft)" }}
         >
@@ -169,11 +173,18 @@ export default function HomePage() {
         <div className="mt-7">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-bold">おすすめのスロット</h2>
-            <Link href="/market" className="text-xs font-medium" style={{ color: "var(--accent)" }}>
-              もっと見る
-            </Link>
+            {!showAllSlots && allSlots.length > 4 && (
+              <button onClick={() => { setShowAllSlots(true); setSlots(allSlots); }} className="text-xs font-medium" style={{ color: "var(--accent)", background: "none", border: "none", cursor: "pointer" }}>
+                もっと見る
+              </button>
+            )}
+            {showAllSlots && (
+              <button onClick={() => { setShowAllSlots(false); setSlots(allSlots.slice(0, 4)); }} className="text-xs font-medium" style={{ color: "var(--muted)", background: "none", border: "none", cursor: "pointer" }}>
+                閉じる
+              </button>
+            )}
           </div>
-          <div className="mt-3 flex gap-3 overflow-x-auto pb-1" style={{ scrollSnapType: "x mandatory" }}>
+          <div data-no-swipe className="mt-3 flex gap-3 overflow-x-auto pb-1" style={{ scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch" }}>
             {slots.map((slot) => {
               const start = new Date(slot.startAt);
               const GRADIENTS = [
@@ -195,6 +206,7 @@ export default function HomePage() {
                     minWidth: 260,
                     height: 380,
                     scrollSnapAlign: "start",
+                    scrollSnapStop: "always",
                     background: hasAvatar ? undefined : bgGradient,
                     boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
                   }}

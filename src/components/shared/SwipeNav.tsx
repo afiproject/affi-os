@@ -33,12 +33,14 @@ export default function SwipeNav({ children }: Props) {
     const dx = e.changedTouches[0].clientX - startX.current;
     const dy = e.changedTouches[0].clientY - startY.current;
 
-    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx)) return;
+    // Require a strong, intentional horizontal swipe (min 120px, and horizontal movement must be 2x vertical)
+    const THRESHOLD = 120;
+    if (Math.abs(dx) < THRESHOLD || Math.abs(dy) > Math.abs(dx) * 0.5) return;
     if (currentIndex < 0) return;
 
-    if (dx < -60 && currentIndex < TAB_ORDER.length - 1) {
+    if (dx < -THRESHOLD && currentIndex < TAB_ORDER.length - 1) {
       router.push(TAB_ORDER[currentIndex + 1]);
-    } else if (dx > 60 && currentIndex > 0) {
+    } else if (dx > THRESHOLD && currentIndex > 0) {
       router.push(TAB_ORDER[currentIndex - 1]);
     }
   }, [currentIndex, router]);

@@ -53,6 +53,7 @@ export const DEMO_SLOTS = [
       ratingAvg: 4.8,
       ratingCount: 31,
       cancelRate: 1.2,
+      gender: "女性",
     },
   },
   {
@@ -74,6 +75,7 @@ export const DEMO_SLOTS = [
       ratingAvg: 4.3,
       ratingCount: 15,
       cancelRate: 5.0,
+      gender: "男性",
     },
   },
   {
@@ -95,6 +97,7 @@ export const DEMO_SLOTS = [
       ratingAvg: 4.0,
       ratingCount: 5,
       cancelRate: 0,
+      gender: "女性",
     },
   },
   {
@@ -116,6 +119,7 @@ export const DEMO_SLOTS = [
       ratingAvg: 4.9,
       ratingCount: 42,
       cancelRate: 0.8,
+      gender: "男性",
     },
   },
   {
@@ -137,6 +141,7 @@ export const DEMO_SLOTS = [
       ratingAvg: 4.6,
       ratingCount: 20,
       cancelRate: 3.5,
+      gender: "女性",
     },
   },
   {
@@ -158,6 +163,7 @@ export const DEMO_SLOTS = [
       ratingAvg: 4.3,
       ratingCount: 15,
       cancelRate: 5.0,
+      gender: "男性",
     },
   },
 ];

@@ -4,9 +4,10 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import SlotCard from "@/components/market/SlotCard";
 import { getSlots } from "@/lib/demo-store";
-import { CATEGORY_LABELS } from "@/lib/demo-data";
+import { CATEGORY_LABELS, GENDER_OPTIONS } from "@/lib/demo-data";
 
 type ModeFilter = "all" | "call" | "in_person";
+type GenderFilter = "" | "男性" | "女性" | "その他";
 
 export default function MarketPage() {
   return (
@@ -69,6 +70,7 @@ function TimeSearch() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [genderFilter, setGenderFilter] = useState<GenderFilter>("");
 
   useEffect(() => { setSlots(getSlots()); }, []);
 
@@ -76,6 +78,7 @@ function TimeSearch() {
     if (modeFilter !== "all" && s.mode !== modeFilter) return false;
     if (categoryFilter && s.category !== categoryFilter) return false;
     if (maxPrice && s.priceYen > parseInt(maxPrice)) return false;
+    if (genderFilter && (s.seller as any).gender !== genderFilter) return false;
     if (s.status !== "listed") return false;
     return true;
   });
@@ -102,6 +105,14 @@ function TimeSearch() {
           <div className="mt-1.5 flex gap-2">
             {([["all", "すべて"], ["call", "📞 通話"], ["in_person", "🚶 対面"]] as const).map(([v, l]) => (
               <button key={v} className={`chip ${v === modeFilter ? "chip-active" : "chip-inactive"}`} onClick={() => setModeFilter(v as ModeFilter)}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="text-xs font-medium" style={{ color: "var(--muted)" }}>性別</label>
+          <div className="mt-1.5 flex gap-2">
+            {([["", "すべて"], ["男性", "♂ 男性"], ["女性", "♀ 女性"], ["その他", "その他"]] as const).map(([v, l]) => (
+              <button key={v} className={`chip ${v === genderFilter ? "chip-active" : "chip-inactive"}`} onClick={() => setGenderFilter(v as GenderFilter)}>{l}</button>
             ))}
           </div>
         </div>
