@@ -32,6 +32,11 @@ function getSession(request: NextRequest) {
 }
 
 export function middleware(request: NextRequest) {
+  // AUTH_DISABLED: 認証チェックを一時的に無効化（AI評価用）
+  // 復活時はこのブロックを削除し、下のコメントアウトを解除する
+  return NextResponse.next();
+
+  /* AUTH_DISABLED: 以下は認証有効時のコード（復活時にコメント解除）
   const { pathname } = request.nextUrl;
 
   // Allow public paths
@@ -68,6 +73,7 @@ export function middleware(request: NextRequest) {
   }
 
   return NextResponse.next();
+  AUTH_DISABLED */
 }
 
 export const config = {

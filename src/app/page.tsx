@@ -9,13 +9,32 @@ export default function SplashPage() {
   const [fade, setFade] = useState(false);
 
   useEffect(() => {
+    // AUTH_DISABLED: セッションがなければダミーセッションを自動作成してホームへ
+    let session = getClientSession();
+    if (!session) {
+      const { setSessionCookie } = require("@/lib/session");
+      setSessionCookie({
+        userId: "guest-user",
+        email: "guest@sloty.app",
+        role: "DEMO" as const,
+        profileComplete: true,
+      });
+    }
+
+    const t1 = setTimeout(() => setFade(true), 1700);
+    const t2 = setTimeout(() => {
+      router.replace("/home");
+    }, 2000);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+    /* AUTH_DISABLED: 以下は認証有効時のコード（復活時にこのuseEffect全体を差し替え）
     const session = getClientSession();
     if (!session) {
-      // Middleware should redirect, but fallback
       router.replace("/login");
       return;
     }
-
     const t1 = setTimeout(() => setFade(true), 1700);
     const t2 = setTimeout(() => {
       if (!session.profileComplete && session.role !== "DEMO") {
@@ -24,10 +43,8 @@ export default function SplashPage() {
         router.replace("/home");
       }
     }, 2000);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-    };
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+    AUTH_DISABLED */
   }, [router]);
 
   return (
