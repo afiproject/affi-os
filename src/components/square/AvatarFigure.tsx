@@ -436,8 +436,18 @@ function renderHairBack(style: number, color: string, colorD: string, a: Anchors
 
 function renderHairCap(color: string, a: Anchors) {
   const { headCx: hx, headCy: hy, headRx: rx, headRy: ry } = a;
-  // Covers crown of head only — stops above brow area so face skin shows correctly
-  return <ellipse cx={hx} cy={hy - ry * 0.45} rx={rx + 2} ry={ry * 0.4} fill={color} />;
+  // Dome covering scalp from hairline up, extending above skull for anime-style volume.
+  // Uses a cubic bezier arch — wider than the skull for natural hair volume.
+  // Rendered BEFORE face features so eyes/mouth stay visible on top.
+  const w = rx + 3;              // Wider than head for volume
+  const top = hy - ry - 5;       // Extends above skull crown
+  const sideY = hy - ry * 0.05;  // Natural hairline level (just above ears)
+  return (
+    <path
+      d={`M${hx - w},${sideY} C${hx - w},${top - 2} ${hx + w},${top - 2} ${hx + w},${sideY} Z`}
+      fill={color}
+    />
+  );
 }
 
 /* ══════════════════════════════════════════════════════
