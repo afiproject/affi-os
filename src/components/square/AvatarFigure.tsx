@@ -1,15 +1,20 @@
 "use client";
 
 import type { AvatarStyle } from "@/lib/demo-data";
+import { computeAnchors, type Anchors, type BaseBody } from "@/lib/avatar-system";
 
 /**
  * AvatarFigure — Pigg-style 2~2.5 head chibi avatar for SLOTY.
  *
- * Redesigned with proper anchor system:
- * - All face features positioned relative to computed anchors
- * - Head/neck/body properly connected across all bodyType variants
- * - Face features adapt to faceShape (faceRx/faceRy) changes
- * - Consistent coordinate space — no misaligned transforms
+ * Phase-based architecture:
+ * - Phase 1: 3 base bodies (male/female/neutral) with fixed anchors
+ * - Phase 2: Face parts positioned relative to base-body anchors
+ * - Phase 3: Hair parts with base-compatible restrictions
+ * - Phase 4: Clothing with body-compatible restrictions
+ * - Phase 5: Body type variants with safe scaling
+ * - Phase 6: Plaza integration
+ *
+ * All positions derived from computeAnchors(base, faceShape, bodyType).
  */
 
 /* ═══ Color helpers ═══ */
@@ -28,66 +33,6 @@ function lt(hex: string, pct: number): string {
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
 }
 
-/* ═══ Anchor system ═══
- * All positions derive from these anchors.
- * Face features scale with faceRy so they stay proportional.
- */
-type Anchors = {
-  headCx: number;      // Head center X (always 50)
-  headCy: number;      // Head center Y
-  faceRx: number;      // Face ellipse X radius
-  faceRy: number;      // Face ellipse Y radius
-  eyeLineY: number;    // Y coordinate of eye centers
-  eyeSpacing: number;  // Distance from center to each eye
-  browLineY: number;   // Y coordinate of eyebrows
-  noseY: number;       // Y coordinate of nose
-  mouthY: number;      // Y coordinate of mouth
-  cheekY: number;      // Y coordinate of cheeks
-  neckTopY: number;    // Where neck meets head
-  neckBottomY: number; // Where neck meets body
-  shoulderY: number;   // Shoulder line Y
-  bodyTopY: number;    // Top of body/torso
-  bodyBottomY: number; // Bottom of torso
-  footY: number;       // Bottom of legs
-  shadowY: number;     // Ground shadow Y
-};
-
-function computeAnchors(faceShape: number, bodyType: number): Anchors {
-  const headCx = 50;
-  const headCy = 38;
-
-  // Face shape determines head size
-  const faceRx = [28, 26, 25, 23][faceShape] ?? 28;
-  const faceRy = [30, 32, 28, 31][faceShape] ?? 30;
-
-  // All face features are relative to headCy and proportional to faceRy
-  // This ensures features stay inside the face regardless of shape
-  const eyeLineY = headCy + faceRy * 0.07;     // Slightly below center
-  const eyeSpacing = 10;                         // Fixed eye distance from center
-  const browLineY = headCy - faceRy * 0.17;     // Above eyes
-  const noseY = headCy + faceRy * 0.25;         // Below eyes
-  const mouthY = headCy + faceRy * 0.40;        // Below nose
-  const cheekY = headCy + faceRy * 0.25;        // At nose level, toward edges
-
-  // Neck connects head bottom to body top
-  const neckTopY = headCy + faceRy - 2;         // Just inside bottom of head ellipse
-  const neckBottomY = headCy + faceRy + 6;      // Small gap for neck
-
-  // Body adapts to bodyType
-  const bodyScale = [1, 0.92, 0.95, 1.08][bodyType] ?? 1;
-  const shoulderY = neckBottomY;
-  const bodyTopY = shoulderY;
-  const bodyBottomY = bodyTopY + 28 * bodyScale;
-  const footY = bodyBottomY + 22 * bodyScale;
-  const shadowY = footY + 3;
-
-  return {
-    headCx, headCy, faceRx, faceRy,
-    eyeLineY, eyeSpacing, browLineY, noseY, mouthY, cheekY,
-    neckTopY, neckBottomY, shoulderY, bodyTopY, bodyBottomY, footY, shadowY,
-  };
-}
-
 export default function AvatarFigure({
   style,
   size = 64,
@@ -99,6 +44,7 @@ export default function AvatarFigure({
   className?: string;
   animate?: "idle" | "walk";
 }) {
+  const base: BaseBody = (style as Record<string, unknown>).base as BaseBody ?? "neutral";
   const {
     faceShape = 0, eyeType = 0, eyeColor = "#2A2A3A", browType = 0,
     mouthType = 0, cheekType = 0, cheekColor = "#FFB4B4", noseType = 0,
@@ -114,13 +60,8 @@ export default function AvatarFigure({
   const topD = dk(topColor, 12);
   const botD = dk(bottomColor, 10);
 
-  const a = computeAnchors(faceShape, bodyType);
-  const bodyWidth = [1, 0.9, 0.88, 1.12][bodyType] ?? 1;
-  const bodyScale = [1, 0.92, 0.95, 1.08][bodyType] ?? 1;
-
-  // ViewBox sized to fit all body types
-  const vw = 100;
-  const vh = Math.round(a.shadowY + 5);
+  // Phase 1: Anchors computed from base body + face shape + body type
+  const a = computeAnchors(base, faceShape, bodyType);
 
   const animClass = animate === "walk" ? "animate-avatar-walk" : animate === "idle" ? "animate-avatar-idle" : "";
 
@@ -128,69 +69,54 @@ export default function AvatarFigure({
     <svg
       width={size}
       height={size}
-      viewBox={`0 0 ${vw} ${vh}`}
+      viewBox={`0 0 100 ${a.viewBoxH}`}
       className={`${animClass} ${className ?? ""}`}
       style={{ overflow: "visible" }}
     >
       {/* ══════ Ground shadow ══════ */}
-      <ellipse cx={50} cy={a.shadowY} rx={18 * bodyWidth} ry={3} fill="rgba(0,0,0,0.08)" />
+      <ellipse cx={50} cy={a.shadowY} rx={a.shoulderHW * 0.75} ry={3} fill="rgba(0,0,0,0.08)" />
 
       {/* ══════ BODY GROUP ══════ */}
       <g data-part="body">
-        {/* ── Legs ── */}
         <g data-part="legs">
-          {renderBottom(bottomType, bottomColor, botD, skin, a, bodyWidth, bodyScale)}
-          {/* Shoes */}
-          <ellipse cx={a.headCx - 12 * bodyWidth} cy={a.footY} rx={6 * bodyWidth} ry={3} fill="#4A4A5A" />
-          <ellipse cx={a.headCx + 12 * bodyWidth} cy={a.footY} rx={6 * bodyWidth} ry={3} fill="#4A4A5A" />
+          {renderBottom(bottomType, bottomColor, botD, skin, a)}
+          <ellipse cx={a.headCx - a.hipHW * 0.55} cy={a.footBase} rx={a.hipHW * 0.28} ry={3} fill="#4A4A5A" />
+          <ellipse cx={a.headCx + a.hipHW * 0.55} cy={a.footBase} rx={a.hipHW * 0.28} ry={3} fill="#4A4A5A" />
         </g>
-
-        {/* ── Torso ── */}
         <g data-part="torso">
-          {renderTop(topType, topColor, topD, skin, skinD, a, bodyWidth)}
+          {renderTop(topType, topColor, topD, skin, skinD, a)}
         </g>
-
-        {/* ── Arms ── */}
         <g data-part="arms">
-          {renderArms(skin, topColor, a, bodyWidth)}
+          {renderArms(skin, topColor, a)}
         </g>
       </g>
 
       {/* ══════ NECK ══════ */}
-      <rect x={a.headCx - 4} y={a.neckTopY} width={8} height={a.neckBottomY - a.neckTopY} rx={3} fill={skin} />
+      <rect x={a.headCx - 4} y={a.neckTop} width={8} height={a.neckBottom - a.neckTop} rx={3} fill={skin} />
 
       {/* ══════ HEAD GROUP ══════ */}
       <g data-part="head">
-        {/* Back hair (behind head) */}
         {renderHairBack(hairStyle, hairColor, hairD, a)}
 
-        {/* Head shape */}
-        <ellipse cx={a.headCx} cy={a.headCy} rx={a.faceRx} ry={a.faceRy} fill={skin} />
-        {/* Subtle head shadow at bottom */}
-        <ellipse cx={a.headCx} cy={a.headCy + a.faceRy * 0.7} rx={a.faceRx * 0.6} ry={4} fill={skinD} opacity={0.3} />
+        <ellipse cx={a.headCx} cy={a.headCy} rx={a.headRx} ry={a.headRy} fill={skin} />
+        <ellipse cx={a.headCx} cy={a.headCy + a.headRy * 0.7} rx={a.headRx * 0.6} ry={4} fill={skinD} opacity={0.3} />
 
-        {/* ── Ears ── */}
-        <ellipse cx={a.headCx - a.faceRx + 2} cy={a.headCy + 2} rx={4} ry={5} fill={skin} />
-        <ellipse cx={a.headCx + a.faceRx - 2} cy={a.headCy + 2} rx={4} ry={5} fill={skin} />
-        <ellipse cx={a.headCx - a.faceRx + 2} cy={a.headCy + 2} rx={2.5} ry={3} fill={skinD} opacity={0.2} />
-        <ellipse cx={a.headCx + a.faceRx - 2} cy={a.headCy + 2} rx={2.5} ry={3} fill={skinD} opacity={0.2} />
+        {/* Ears */}
+        <ellipse cx={a.headCx - a.headRx + 2} cy={a.headCy + 2} rx={4} ry={5} fill={skin} />
+        <ellipse cx={a.headCx + a.headRx - 2} cy={a.headCy + 2} rx={4} ry={5} fill={skin} />
+        <ellipse cx={a.headCx - a.headRx + 2} cy={a.headCy + 2} rx={2.5} ry={3} fill={skinD} opacity={0.2} />
+        <ellipse cx={a.headCx + a.headRx - 2} cy={a.headCy + 2} rx={2.5} ry={3} fill={skinD} opacity={0.2} />
 
-        {/* ══════ FACE ══════ */}
         <g data-part="face">
           {renderBrows(browType, a)}
-          <g className="avatar-eyes">
-            {renderEyes(eyeType, eyeColor, a)}
-          </g>
+          {renderEyes(eyeType, eyeColor, a)}
           {renderNose(noseType, a, skin)}
           {renderMouth(mouthType, a)}
           {renderCheeks(cheekType, cheekColor, a)}
         </g>
 
-        {/* ── Front hair (over face) ── */}
         {renderHairFront(hairStyle, hairColor, hairD, hairH, a)}
-
-        {/* ── Accessories ── */}
-        {renderAccessory(accessory, a, hairColor)}
+        {renderAccessory(accessory, a)}
       </g>
     </svg>
   );
@@ -201,7 +127,7 @@ export default function AvatarFigure({
    ══════════════════════════════════════════════════════ */
 
 function renderEyes(type: number, color: string, a: Anchors) {
-  const ey = a.eyeLineY;
+  const ey = a.eyeLine;
   const lx = a.headCx - a.eyeSpacing;
   const rx = a.headCx + a.eyeSpacing;
 
@@ -286,7 +212,7 @@ function renderEyes(type: number, color: string, a: Anchors) {
 }
 
 function renderBrows(type: number, a: Anchors) {
-  const by = a.browLineY;
+  const by = a.browLine;
   const lx = a.headCx - a.eyeSpacing;
   const rx = a.headCx + a.eyeSpacing;
 
@@ -327,7 +253,7 @@ function renderBrows(type: number, a: Anchors) {
 }
 
 function renderMouth(type: number, a: Anchors) {
-  const my = a.mouthY;
+  const my = a.mouthLine;
   const cx = a.headCx;
 
   switch (type) {
@@ -359,7 +285,7 @@ function renderMouth(type: number, a: Anchors) {
 }
 
 function renderNose(type: number, a: Anchors, skin: string) {
-  const ny = a.noseY;
+  const ny = a.noseLine;
   const cx = a.headCx;
   switch (type) {
     case 0: // ちょん
@@ -374,8 +300,8 @@ function renderNose(type: number, a: Anchors, skin: string) {
 }
 
 function renderCheeks(type: number, color: string, a: Anchors) {
-  const cy = a.cheekY;
-  const dist = a.faceRx * 0.6;
+  const cy = a.cheekLine;
+  const dist = a.headRx * 0.6;
   const cx = a.headCx;
 
   switch (type) {
@@ -411,7 +337,7 @@ function renderCheeks(type: number, color: string, a: Anchors) {
    ══════════════════════════════════════════════════════ */
 
 function renderHairBack(style: number, color: string, colorD: string, a: Anchors) {
-  const { headCx: hx, headCy: hy, faceRx: rx } = a;
+  const { headCx: hx, headCy: hy, headRx: rx } = a;
 
   switch (style) {
     case 6: // ロングストレート
@@ -449,7 +375,7 @@ function renderHairBack(style: number, color: string, colorD: string, a: Anchors
    ══════════════════════════════════════════════════════ */
 
 function renderHairFront(style: number, color: string, colorD: string, colorH: string, a: Anchors) {
-  const { headCx: hx, headCy: hy, faceRx: rx, faceRy: ry } = a;
+  const { headCx: hx, headCy: hy, headRx: rx, headRy: ry } = a;
 
   // Common hair cap (top of head) — adapts to face shape
   const cap = (
@@ -476,16 +402,16 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
         {cap}
         <path d={`M${hx - rx - 2},${hy - 5} Q${hx - rx + 5},${hy - ry - 5} ${hx},${hy - ry - 6} Q${hx + rx - 5},${hy - ry - 5} ${hx + rx + 2},${hy - 5}`} fill={color} />
         {/* Heavy bangs — positioned relative to browLine */}
-        <path d={`M${hx - rx},${hy - 8} Q${hx - 8},${a.browLineY + 5} ${hx},${a.browLineY + 6} Q${hx + 8},${a.browLineY + 5} ${hx + rx},${hy - 8}`} fill={color} />
-        <path d={`M${hx - 5},${hy - ry - 2} L${hx - 3},${a.browLineY + 5}`} stroke={colorH} strokeWidth="0.6" opacity="0.4" />
-        <path d={`M${hx + 5},${hy - ry - 2} L${hx + 3},${a.browLineY + 5}`} stroke={colorH} strokeWidth="0.6" opacity="0.4" />
+        <path d={`M${hx - rx},${hy - 8} Q${hx - 8},${a.browLine + 5} ${hx},${a.browLine + 6} Q${hx + 8},${a.browLine + 5} ${hx + rx},${hy - 8}`} fill={color} />
+        <path d={`M${hx - 5},${hy - ry - 2} L${hx - 3},${a.browLine + 5}`} stroke={colorH} strokeWidth="0.6" opacity="0.4" />
+        <path d={`M${hx + 5},${hy - ry - 2} L${hx + 3},${a.browLine + 5}`} stroke={colorH} strokeWidth="0.6" opacity="0.4" />
       </>);
     case 2: // メンズセンターパート
       return (<>
         {cap}
         <path d={`M${hx - rx - 2},${hy - 5} Q${hx - rx + 5},${hy - ry - 6} ${hx},${hy - ry - 8} Q${hx + rx - 5},${hy - ry - 6} ${hx + rx + 2},${hy - 5}`} fill={color} />
-        <path d={`M${hx},${hy - ry - 5} Q${hx - 12},${hy - 8} ${hx - rx},${a.browLineY + 4}`} fill={color} />
-        <path d={`M${hx},${hy - ry - 5} Q${hx + 12},${hy - 8} ${hx + rx},${a.browLineY + 4}`} fill={color} />
+        <path d={`M${hx},${hy - ry - 5} Q${hx - 12},${hy - 8} ${hx - rx},${a.browLine + 4}`} fill={color} />
+        <path d={`M${hx},${hy - ry - 5} Q${hx + 12},${hy - 8} ${hx + rx},${a.browLine + 4}`} fill={color} />
         <line x1={hx} y1={hy - ry - 5} x2={hx} y2={hy - ry + 3} stroke={colorD} strokeWidth="0.8" opacity="0.4" />
         <rect x={hx - rx - 1} y={hy - 8} width={5} height={18} rx={2} fill={color} />
         <rect x={hx + rx - 4} y={hy - 8} width={5} height={18} rx={2} fill={color} />
@@ -493,10 +419,10 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
     case 3: // メンズ前髪重め
       return (<>
         {cap}
-        <path d={`M${hx - rx - 1},${a.browLineY + 4} Q${hx},${hy - ry - 10} ${hx + rx + 1},${a.browLineY + 4}`} fill={color} />
+        <path d={`M${hx - rx - 1},${a.browLine + 4} Q${hx},${hy - ry - 10} ${hx + rx + 1},${a.browLine + 4}`} fill={color} />
         {/* Very heavy straight bangs — covers brows, positioned relative to eyeLine */}
-        <rect x={hx - rx + 2} y={hy - 12} width={rx * 2 - 4} height={a.eyeLineY - hy + 12} rx={4} fill={color} />
-        <path d={`M${hx - rx + 2},${a.eyeLineY} L${hx + rx - 2},${a.eyeLineY}`} stroke={colorD} strokeWidth="0.5" opacity="0.3" />
+        <rect x={hx - rx + 2} y={hy - 12} width={rx * 2 - 4} height={a.eyeLine - hy + 12} rx={4} fill={color} />
+        <path d={`M${hx - rx + 2},${a.eyeLine} L${hx + rx - 2},${a.eyeLine}`} stroke={colorD} strokeWidth="0.5" opacity="0.3" />
       </>);
     case 4: // ボブ
       return (<>
@@ -504,8 +430,8 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
         {hairTop()}
         <path d={`M${hx - rx - 3},${hy - 10} Q${hx - rx - 5},${hy + 10} ${hx - rx + 8},${hy + 18}`} fill={color} />
         <path d={`M${hx + rx + 3},${hy - 10} Q${hx + rx + 5},${hy + 10} ${hx + rx - 8},${hy + 18}`} fill={color} />
-        <path d={`M${hx - rx + 3},${a.browLineY + 1} Q${hx},${a.browLineY + 5} ${hx + rx - 3},${a.browLineY + 1}`} fill={color} />
-        <path d={`M${hx - 6},${a.browLineY + 2} L${hx - 4},${a.browLineY + 6}`} stroke={colorH} strokeWidth="0.5" opacity="0.3" />
+        <path d={`M${hx - rx + 3},${a.browLine + 1} Q${hx},${a.browLine + 5} ${hx + rx - 3},${a.browLine + 1}`} fill={color} />
+        <path d={`M${hx - 6},${a.browLine + 2} L${hx - 4},${a.browLine + 6}`} stroke={colorH} strokeWidth="0.5" opacity="0.3" />
       </>);
     case 5: // ミディアム
       return (<>
@@ -513,13 +439,13 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
         {hairTop()}
         <path d={`M${hx - rx - 3},${hy - 10} Q${hx - rx - 6},${hy + 15} ${hx - rx + 3},${hy + 30}`} fill={color} />
         <path d={`M${hx + rx + 3},${hy - 10} Q${hx + rx + 6},${hy + 15} ${hx + rx - 3},${hy + 30}`} fill={color} />
-        <path d={`M${hx - rx + 5},${a.browLineY - 1} Q${hx - 3},${a.browLineY + 4} ${hx + rx - 8},${a.browLineY + 1}`} fill={color} />
+        <path d={`M${hx - rx + 5},${a.browLine - 1} Q${hx - 3},${a.browLine + 4} ${hx + rx - 8},${a.browLine + 1}`} fill={color} />
       </>);
     case 6: // ロングストレート
       return (<>
         {cap}
         {hairTop()}
-        <path d={`M${hx - rx + 3},${a.browLineY + 1} Q${hx},${a.browLineY + 6} ${hx + rx - 3},${a.browLineY + 1}`} fill={color} />
+        <path d={`M${hx - rx + 3},${a.browLine + 1} Q${hx},${a.browLine + 6} ${hx + rx - 3},${a.browLine + 1}`} fill={color} />
         <path d={`M${hx - rx - 2},${hy - 8} L${hx - rx - 3},${hy + 20}`} stroke={color} strokeWidth="5" strokeLinecap="round" />
         <path d={`M${hx + rx + 2},${hy - 8} L${hx + rx + 3},${hy + 20}`} stroke={color} strokeWidth="5" strokeLinecap="round" />
       </>);
@@ -527,7 +453,7 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       return (<>
         {cap}
         {hairTop()}
-        <path d={`M${hx - rx + 5},${a.browLineY + 1} Q${hx - 3},${a.browLineY + 6} ${hx + rx - 8},${a.browLineY + 2}`} fill={color} />
+        <path d={`M${hx - rx + 5},${a.browLine + 1} Q${hx - 3},${a.browLine + 6} ${hx + rx - 8},${a.browLine + 2}`} fill={color} />
         <path d={`M${hx - rx - 2},${hy - 8} Q${hx - rx - 5},${hy + 5} ${hx - rx},${hy + 15} Q${hx - rx - 5},${hy + 25} ${hx - rx + 2},${hy + 32}`} fill={color} />
         <path d={`M${hx + rx + 2},${hy - 8} Q${hx + rx + 5},${hy + 5} ${hx + rx},${hy + 15} Q${hx + rx + 5},${hy + 25} ${hx + rx - 2},${hy + 32}`} fill={color} />
       </>);
@@ -535,7 +461,7 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       return (<>
         {cap}
         <path d={`M${hx - rx - 2},${hy - 10} Q${hx},${hy - ry - 8} ${hx + rx + 2},${hy - 10}`} fill={color} />
-        <path d={`M${hx - rx + 4},${a.browLineY + 1} Q${hx},${a.browLineY + 5} ${hx + rx - 4},${a.browLineY + 1}`} fill={color} />
+        <path d={`M${hx - rx + 4},${a.browLine + 1} Q${hx},${a.browLine + 5} ${hx + rx - 4},${a.browLine + 1}`} fill={color} />
         <circle cx={hx - rx + 1} cy={hy - 10} r={3} fill="#FF8888" />
         <circle cx={hx + rx - 1} cy={hy - 10} r={3} fill="#FF8888" />
       </>);
@@ -543,7 +469,7 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       return (<>
         {cap}
         <path d={`M${hx - rx - 2},${hy - 10} Q${hx},${hy - ry - 8} ${hx + rx + 2},${hy - 10}`} fill={color} />
-        <path d={`M${hx - rx + 5},${a.browLineY} Q${hx - 2},${a.browLineY + 5} ${hx + rx - 5},${a.browLineY + 2}`} fill={color} />
+        <path d={`M${hx - rx + 5},${a.browLine} Q${hx - 2},${a.browLine + 5} ${hx + rx - 5},${a.browLine + 2}`} fill={color} />
         <circle cx={hx + 8} cy={hy - rx - 2} r={2.5} fill="#FF8888" />
         <rect x={hx - rx - 1} y={hy - 8} width={4} height={12} rx={2} fill={color} />
       </>);
@@ -551,7 +477,7 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       return (<>
         {cap}
         <path d={`M${hx - rx - 2},${hy - 10} Q${hx},${hy - ry - 8} ${hx + rx + 2},${hy - 10}`} fill={color} />
-        <path d={`M${hx - rx + 4},${a.browLineY + 1} Q${hx},${a.browLineY + 6} ${hx + rx - 4},${a.browLineY + 1}`} fill={color} />
+        <path d={`M${hx - rx + 4},${a.browLine + 1} Q${hx},${a.browLine + 6} ${hx + rx - 4},${a.browLine + 1}`} fill={color} />
         <circle cx={hx + 2} cy={hy - rx - 5} r={3} fill={colorH} opacity="0.3" />
         <rect x={hx - rx - 1} y={hy - 8} width={4} height={10} rx={2} fill={color} />
         <rect x={hx + rx - 3} y={hy - 8} width={4} height={10} rx={2} fill={color} />
@@ -560,7 +486,7 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
       return (<>
         {cap}
         <path d={`M${hx - rx - 2},${hy - 8} Q${hx},${hy - ry - 7} ${hx + rx + 2},${hy - 8}`} fill={color} />
-        <path d={`M${hx - rx + 2},${a.browLineY + 1} Q${hx - 5},${a.browLineY + 7} ${hx + 2},${a.browLineY + 4} Q${hx + 8},${a.browLineY + 6} ${hx + rx - 2},${a.browLineY + 2}`} fill={color} />
+        <path d={`M${hx - rx + 2},${a.browLine + 1} Q${hx - 5},${a.browLine + 7} ${hx + 2},${a.browLine + 4} Q${hx + 8},${a.browLine + 6} ${hx + rx - 2},${a.browLine + 2}`} fill={color} />
         <path d={`M${hx - rx - 2},${hy - 8} Q${hx - rx - 3},${hy + 3} ${hx - rx + 5},${hy + 10}`} fill={color} />
         <path d={`M${hx + rx + 2},${hy - 8} Q${hx + rx + 3},${hy + 3} ${hx + rx - 5},${hy + 10}`} fill={color} />
       </>);
@@ -573,10 +499,10 @@ function renderHairFront(style: number, color: string, colorD: string, colorH: s
    ARMS — properly anchored to shoulder
    ══════════════════════════════════════════════════════ */
 
-function renderArms(skin: string, topColor: string, a: Anchors, bodyWidth: number) {
-  const shoulderL = a.headCx - 24 * bodyWidth;
-  const shoulderR = a.headCx + 24 * bodyWidth;
-  const sy = a.shoulderY + 4;
+function renderArms(skin: string, topColor: string, a: Anchors) {
+  const shoulderL = a.headCx - a.shoulderHW;
+  const shoulderR = a.headCx + a.shoulderHW;
+  const sy = a.shoulderLine + 4;
   const handY = sy + 20;
 
   return (<>
@@ -595,11 +521,11 @@ function renderArms(skin: string, topColor: string, a: Anchors, bodyWidth: numbe
    CLOTHING — Top (anchored to body coordinates)
    ══════════════════════════════════════════════════════ */
 
-function renderTop(type: number, color: string, colorD: string, skin: string, skinD: string, a: Anchors, bodyWidth: number) {
-  const ty = a.bodyTopY;
-  const by = a.bodyBottomY;
+function renderTop(type: number, color: string, colorD: string, skin: string, _skinD: string, a: Anchors) {
+  const ty = a.bodyTop;
+  const by = a.bodyBottom;
   const cx = a.headCx;
-  const hw = 24 * bodyWidth; // half-width of torso
+  const hw = a.shoulderHW; // half-width from anchors
 
   const left = cx - hw;
   const right = cx + hw;
@@ -704,7 +630,7 @@ function renderTop(type: number, color: string, colorD: string, skin: string, sk
         <path d={`M${cx - 2},${nTopY + 2} L${cx},${nTopY + 12} L${cx + 2},${nTopY + 2}`} fill="#CC4444" />
       </>);
     default:
-      return renderTop(0, color, colorD, skin, skinD, a, bodyWidth);
+      return renderTop(0, color, colorD, skin, _skinD, a);
   }
 }
 
@@ -712,12 +638,12 @@ function renderTop(type: number, color: string, colorD: string, skin: string, sk
    CLOTHING — Bottom (anchored to body coordinates)
    ══════════════════════════════════════════════════════ */
 
-function renderBottom(type: number, color: string, colorD: string, skin: string, a: Anchors, bodyWidth: number, bodyScale: number) {
-  const by = a.bodyBottomY;
-  const fy = a.footY;
+function renderBottom(type: number, color: string, colorD: string, skin: string, a: Anchors) {
+  const by = a.bodyBottom;
+  const fy = a.footBase;
   const cx = a.headCx;
-  const hw = 22 * bodyWidth; // half-width at hips
-  const legInset = 2 * bodyWidth; // gap between legs at center
+  const hw = a.hipHW; // half-width from anchors
+  const legInset = hw * 0.1; // gap between legs at center
 
   const ll = cx - hw; // left leg outer
   const lr = cx - legInset; // left leg inner
@@ -767,7 +693,7 @@ function renderBottom(type: number, color: string, colorD: string, skin: string,
       </>);
     case 6: // サロペット
       {
-        const strapTop = a.bodyTopY + 2;
+        const strapTop = a.bodyTop + 2;
         return (<>
           <path d={`M${ll},${by - 6} L${ll + 2},${fy} L${lr + 4},${fy} L${cx},${by} L${rl - 4},${fy} L${rr - 2},${fy} L${rr},${by - 6} Z`} fill={color} />
           <line x1={ll + 7} y1={by - 6} x2={ll + 10} y2={strapTop} stroke={color} strokeWidth="3" strokeLinecap="round" />
@@ -783,7 +709,7 @@ function renderBottom(type: number, color: string, colorD: string, skin: string,
         <path d={`M${rr - 6},${by + 4} L${rr - 4},${fy}`} stroke={colorD} strokeWidth="0.4" opacity="0.2" />
       </>);
     default:
-      return renderBottom(0, color, colorD, skin, a, bodyWidth, bodyScale);
+      return renderBottom(0, color, colorD, skin, a);
   }
 }
 
@@ -791,26 +717,26 @@ function renderBottom(type: number, color: string, colorD: string, skin: string,
    ACCESSORIES (anchored to head)
    ══════════════════════════════════════════════════════ */
 
-function renderAccessory(type: number, a: Anchors, _hairColor: string) {
-  const { headCx: hx, headCy: hy, faceRx: rx, faceRy: ry } = a;
+function renderAccessory(type: number, a: Anchors) {
+  const { headCx: hx, headCy: hy, headRx: rx, headRy: ry } = a;
 
   switch (type) {
     case 0: return null;
     case 1: // 丸メガネ
       return (<>
-        <circle cx={hx - a.eyeSpacing} cy={a.eyeLineY} r={6.5} fill="none" stroke="#4A4A5A" strokeWidth="1.2" />
-        <circle cx={hx + a.eyeSpacing} cy={a.eyeLineY} r={6.5} fill="none" stroke="#4A4A5A" strokeWidth="1.2" />
-        <line x1={hx - a.eyeSpacing + 6.5} y1={a.eyeLineY} x2={hx + a.eyeSpacing - 6.5} y2={a.eyeLineY} stroke="#4A4A5A" strokeWidth="1" />
-        <line x1={hx - a.eyeSpacing - 6.5} y1={a.eyeLineY} x2={hx - rx + 2} y2={hy} stroke="#4A4A5A" strokeWidth="0.8" />
-        <line x1={hx + a.eyeSpacing + 6.5} y1={a.eyeLineY} x2={hx + rx - 2} y2={hy} stroke="#4A4A5A" strokeWidth="0.8" />
+        <circle cx={hx - a.eyeSpacing} cy={a.eyeLine} r={6.5} fill="none" stroke="#4A4A5A" strokeWidth="1.2" />
+        <circle cx={hx + a.eyeSpacing} cy={a.eyeLine} r={6.5} fill="none" stroke="#4A4A5A" strokeWidth="1.2" />
+        <line x1={hx - a.eyeSpacing + 6.5} y1={a.eyeLine} x2={hx + a.eyeSpacing - 6.5} y2={a.eyeLine} stroke="#4A4A5A" strokeWidth="1" />
+        <line x1={hx - a.eyeSpacing - 6.5} y1={a.eyeLine} x2={hx - rx + 2} y2={hy} stroke="#4A4A5A" strokeWidth="0.8" />
+        <line x1={hx + a.eyeSpacing + 6.5} y1={a.eyeLine} x2={hx + rx - 2} y2={hy} stroke="#4A4A5A" strokeWidth="0.8" />
       </>);
     case 2: // 四角メガネ
       return (<>
-        <rect x={hx - a.eyeSpacing - 6} y={a.eyeLineY - 5} width={12} height={10} rx={2} fill="none" stroke="#3A3A4A" strokeWidth="1.3" />
-        <rect x={hx + a.eyeSpacing - 6} y={a.eyeLineY - 5} width={12} height={10} rx={2} fill="none" stroke="#3A3A4A" strokeWidth="1.3" />
-        <line x1={hx - a.eyeSpacing + 6} y1={a.eyeLineY} x2={hx + a.eyeSpacing - 6} y2={a.eyeLineY} stroke="#3A3A4A" strokeWidth="1" />
-        <line x1={hx - a.eyeSpacing - 6} y1={a.eyeLineY - 1} x2={hx - rx + 2} y2={hy - 1} stroke="#3A3A4A" strokeWidth="0.8" />
-        <line x1={hx + a.eyeSpacing + 6} y1={a.eyeLineY - 1} x2={hx + rx - 2} y2={hy - 1} stroke="#3A3A4A" strokeWidth="0.8" />
+        <rect x={hx - a.eyeSpacing - 6} y={a.eyeLine - 5} width={12} height={10} rx={2} fill="none" stroke="#3A3A4A" strokeWidth="1.3" />
+        <rect x={hx + a.eyeSpacing - 6} y={a.eyeLine - 5} width={12} height={10} rx={2} fill="none" stroke="#3A3A4A" strokeWidth="1.3" />
+        <line x1={hx - a.eyeSpacing + 6} y1={a.eyeLine} x2={hx + a.eyeSpacing - 6} y2={a.eyeLine} stroke="#3A3A4A" strokeWidth="1" />
+        <line x1={hx - a.eyeSpacing - 6} y1={a.eyeLine - 1} x2={hx - rx + 2} y2={hy - 1} stroke="#3A3A4A" strokeWidth="0.8" />
+        <line x1={hx + a.eyeSpacing + 6} y1={a.eyeLine - 1} x2={hx + rx - 2} y2={hy - 1} stroke="#3A3A4A" strokeWidth="0.8" />
       </>);
     case 3: // キャップ
       return (<>

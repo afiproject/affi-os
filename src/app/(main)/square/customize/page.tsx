@@ -11,13 +11,21 @@ import {
   ACCESSORY_NAMES, AVATAR_PRESETS,
 } from "@/lib/demo-data";
 import type { AvatarStyle } from "@/lib/demo-data";
+import { BASE_BODY_NAMES, getAllowed, sanitizeStyle } from "@/lib/avatar-system";
+import type { BaseBody } from "@/lib/avatar-system";
 
-type Step = "preset" | "detail";
+type Step = "base" | "preset" | "detail";
 type Category =
   | "faceShape" | "eyeType" | "eyeColor" | "browType" | "mouthType"
   | "cheekType" | "cheekColor" | "noseType"
   | "hairStyle" | "hairColor" | "bodyType" | "skinTone"
   | "topType" | "topColor" | "bottomType" | "bottomColor" | "accessory";
+
+/** Categories that have compatibility restrictions */
+const COMPAT_FIELDS: Category[] = [
+  "faceShape", "eyeType", "browType", "mouthType",
+  "hairStyle", "bodyType", "topType", "bottomType", "accessory",
+];
 
 const CATEGORIES: { key: Category; label: string; group: string }[] = [
   { key: "hairStyle", label: "髪型", group: "見た目" },
@@ -43,7 +51,7 @@ const DEFAULT_STYLE: AvatarStyle = AVATAR_PRESETS[0].style;
 
 export default function CustomizePage() {
   const router = useRouter();
-  const [step, setStep] = useState<Step>("preset");
+  const [step, setStep] = useState<Step>("base");
   const [style, setStyle] = useState<AvatarStyle>(DEFAULT_STYLE);
   const [activeCategory, setActiveCategory] = useState<Category>("hairStyle");
 
@@ -52,8 +60,7 @@ export default function CustomizePage() {
       const saved = localStorage.getItem("sloty_avatar_style");
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Check if it has new fields — if not, stay on preset step
-        if (parsed.faceShape !== undefined) {
+        if (parsed.base && parsed.faceShape !== undefined) {
           setStyle(parsed);
           setStep("detail");
         }
@@ -62,6 +69,14 @@ export default function CustomizePage() {
   }, []);
 
   const update = (partial: Partial<AvatarStyle>) => setStyle((s) => ({ ...s, ...partial }));
+
+  /** Change base body and sanitize all parts for compatibility */
+  const changeBase = (base: BaseBody) => {
+    setStyle((s) => {
+      const sanitized = sanitizeStyle(base, { ...s, base }) as unknown as AvatarStyle;
+      return sanitized;
+    });
+  };
 
   const save = () => {
     localStorage.setItem("sloty_avatar_style", JSON.stringify(style));
@@ -73,36 +88,87 @@ export default function CustomizePage() {
     setStep("detail");
   };
 
-  // ── Preset selection step ──
-  if (step === "preset") {
+  // ── Step 1: Base body selection ──
+  if (step === "base") {
+    const bases: BaseBody[] = ["male", "female", "neutral"];
     return (
       <div className="px-5 pt-3 pb-8">
         <div className="flex items-center gap-3 mb-4">
           <button onClick={() => router.back()} className="flex h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: "var(--accent-soft)" }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-soft-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
-          <h1 className="text-lg font-bold">アバターを選ぼう</h1>
+          <h1 className="text-lg font-bold">素体を選ぼう</h1>
         </div>
 
-        <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
-          まずはベースを選んでね。あとから細かく変えられるよ
+        <p className="text-sm mb-5" style={{ color: "var(--muted)" }}>
+          まずはベースとなる体型を選んでね
         </p>
 
         <div className="grid grid-cols-3 gap-3">
-          {AVATAR_PRESETS.map((preset, i) => (
-            <button
-              key={i}
-              onClick={() => selectPreset(preset.style)}
-              className="flex flex-col items-center gap-2 rounded-2xl p-3 transition-all active:scale-95"
-              style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
-            >
-              <div className="rounded-xl p-1" style={{ background: "var(--gradient-soft)" }}>
-                <AvatarFigure style={preset.style} size={64} />
-              </div>
-              <span className="text-[11px] font-medium">{preset.name}</span>
-            </button>
-          ))}
+          {bases.map((base) => {
+            const previewStyle: AvatarStyle = { ...DEFAULT_STYLE, base };
+            return (
+              <button
+                key={base}
+                onClick={() => { changeBase(base); setStep("preset"); }}
+                className="flex flex-col items-center gap-2 rounded-2xl p-4 transition-all active:scale-95"
+                style={{
+                  backgroundColor: style.base === base ? "var(--accent-soft)" : "var(--card)",
+                  border: style.base === base ? "2px solid var(--accent)" : "1px solid var(--border)",
+                }}
+              >
+                <div className="rounded-xl p-1" style={{ background: "var(--gradient-soft)" }}>
+                  <AvatarFigure style={previewStyle} size={72} />
+                </div>
+                <span className="text-[12px] font-semibold">{BASE_BODY_NAMES[base]}</span>
+              </button>
+            );
+          })}
         </div>
+      </div>
+    );
+  }
+
+  // ── Step 2: Preset selection ──
+  if (step === "preset") {
+    const filteredPresets = AVATAR_PRESETS.filter((p) => p.style.base === style.base);
+    return (
+      <div className="px-5 pt-3 pb-8">
+        <div className="flex items-center gap-3 mb-4">
+          <button onClick={() => setStep("base")} className="flex h-9 w-9 items-center justify-center rounded-full" style={{ backgroundColor: "var(--accent-soft)" }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-soft-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+          </button>
+          <h1 className="text-lg font-bold">プリセットを選ぼう</h1>
+          <span className="text-[11px] rounded-full px-2 py-0.5 font-medium" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-soft-text)" }}>
+            {BASE_BODY_NAMES[style.base]}
+          </span>
+        </div>
+
+        <p className="text-sm mb-4" style={{ color: "var(--muted)" }}>
+          ベースを選んでから細かく変えられるよ
+        </p>
+
+        {filteredPresets.length > 0 ? (
+          <div className="grid grid-cols-3 gap-3">
+            {filteredPresets.map((preset, i) => (
+              <button
+                key={i}
+                onClick={() => selectPreset(preset.style)}
+                className="flex flex-col items-center gap-2 rounded-2xl p-3 transition-all active:scale-95"
+                style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
+              >
+                <div className="rounded-xl p-1" style={{ background: "var(--gradient-soft)" }}>
+                  <AvatarFigure style={preset.style} size={64} />
+                </div>
+                <span className="text-[11px] font-medium">{preset.name}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="text-[12px] text-center py-6" style={{ color: "var(--muted)" }}>
+            この素体のプリセットはまだないよ
+          </p>
+        )}
 
         <button
           onClick={() => setStep("detail")}
@@ -115,7 +181,30 @@ export default function CustomizePage() {
     );
   }
 
-  // ── Detail editing step ──
+  // ── Step 3: Detail editing ──
+  /** Get allowed indices for a compatibility-restricted field */
+  const allowed = (field: Category): readonly number[] => {
+    if (COMPAT_FIELDS.includes(field)) {
+      return getAllowed(style.base, field);
+    }
+    return [];
+  };
+
+  /** Name lookup map for each named-grid category */
+  const nameMap: Record<string, string[]> = {
+    hairStyle: HAIR_STYLE_NAMES,
+    faceShape: FACE_SHAPE_NAMES,
+    eyeType: EYE_TYPE_NAMES,
+    browType: BROW_TYPE_NAMES,
+    mouthType: MOUTH_TYPE_NAMES,
+    cheekType: CHEEK_TYPE_NAMES,
+    noseType: NOSE_TYPE_NAMES,
+    bodyType: BODY_TYPE_NAMES,
+    topType: TOP_TYPE_NAMES,
+    bottomType: BOTTOM_TYPE_NAMES,
+    accessory: ACCESSORY_NAMES,
+  };
+
   return (
     <div className="px-5 pt-3 pb-8">
       {/* Header */}
@@ -124,6 +213,9 @@ export default function CustomizePage() {
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent-soft-text)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
         </button>
         <h1 className="text-lg font-bold">カスタマイズ</h1>
+        <span className="text-[11px] rounded-full px-2 py-0.5 font-medium" style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-soft-text)" }}>
+          {BASE_BODY_NAMES[style.base]}
+        </span>
       </div>
 
       {/* Preview */}
@@ -152,20 +244,19 @@ export default function CustomizePage() {
 
       {/* Options panel */}
       <div className="mt-3 rounded-2xl p-4" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
-        {/* Named options with mini avatar preview */}
-        {activeCategory === "hairStyle" && <NamedGrid names={HAIR_STYLE_NAMES} selected={style.hairStyle} style={style} field="hairStyle" update={update} />}
-        {activeCategory === "faceShape" && <NamedGrid names={FACE_SHAPE_NAMES} selected={style.faceShape} style={style} field="faceShape" update={update} />}
-        {activeCategory === "eyeType" && <NamedGrid names={EYE_TYPE_NAMES} selected={style.eyeType} style={style} field="eyeType" update={update} />}
-        {activeCategory === "browType" && <NamedGrid names={BROW_TYPE_NAMES} selected={style.browType} style={style} field="browType" update={update} />}
-        {activeCategory === "mouthType" && <NamedGrid names={MOUTH_TYPE_NAMES} selected={style.mouthType} style={style} field="mouthType" update={update} />}
-        {activeCategory === "cheekType" && <NamedGrid names={CHEEK_TYPE_NAMES} selected={style.cheekType} style={style} field="cheekType" update={update} />}
-        {activeCategory === "noseType" && <NamedGrid names={NOSE_TYPE_NAMES} selected={style.noseType} style={style} field="noseType" update={update} />}
-        {activeCategory === "bodyType" && <NamedGrid names={BODY_TYPE_NAMES} selected={style.bodyType} style={style} field="bodyType" update={update} />}
-        {activeCategory === "topType" && <NamedGrid names={TOP_TYPE_NAMES} selected={style.topType} style={style} field="topType" update={update} />}
-        {activeCategory === "bottomType" && <NamedGrid names={BOTTOM_TYPE_NAMES} selected={style.bottomType} style={style} field="bottomType" update={update} />}
-        {activeCategory === "accessory" && <NamedGrid names={ACCESSORY_NAMES} selected={style.accessory} style={style} field="accessory" update={update} />}
+        {/* Named options — filtered by compatibility */}
+        {nameMap[activeCategory] && (
+          <FilteredNamedGrid
+            names={nameMap[activeCategory]}
+            allowedIndices={allowed(activeCategory)}
+            selected={(style as Record<string, unknown>)[activeCategory] as number}
+            style={style}
+            field={activeCategory as keyof AvatarStyle}
+            update={update}
+          />
+        )}
 
-        {/* Color pickers */}
+        {/* Color pickers — no compatibility restriction */}
         {activeCategory === "hairColor" && <ColorGrid colors={HAIR_COLORS} selected={style.hairColor} onSelect={(c) => update({ hairColor: c })} />}
         {activeCategory === "eyeColor" && <ColorGrid colors={EYE_COLORS} selected={style.eyeColor} onSelect={(c) => update({ eyeColor: c })} />}
         {activeCategory === "cheekColor" && <ColorGrid colors={CHEEK_COLORS} selected={style.cheekColor} onSelect={(c) => update({ cheekColor: c })} />}
@@ -182,18 +273,24 @@ export default function CustomizePage() {
   );
 }
 
-// ── Grid with mini avatar + name for each option ──
-function NamedGrid({ names, selected, style, field, update }: {
+// ── Compatibility-filtered grid with mini avatar + name ──
+function FilteredNamedGrid({ names, allowedIndices, selected, style, field, update }: {
   names: string[];
+  allowedIndices: readonly number[];
   selected: number;
   style: AvatarStyle;
   field: keyof AvatarStyle;
   update: (p: Partial<AvatarStyle>) => void;
 }) {
-  const cols = names.length <= 4 ? "grid-cols-2" : names.length <= 6 ? "grid-cols-3" : "grid-cols-4";
+  // If no compat restriction (empty allowedIndices), show all
+  const indices = allowedIndices.length > 0
+    ? allowedIndices.filter((i) => i < names.length)
+    : names.map((_, i) => i);
+
+  const cols = indices.length <= 4 ? "grid-cols-2" : indices.length <= 6 ? "grid-cols-3" : "grid-cols-4";
   return (
     <div className={`grid ${cols} gap-2`}>
-      {names.map((name, i) => (
+      {indices.map((i) => (
         <button
           key={i}
           onClick={() => update({ [field]: i })}
@@ -204,7 +301,7 @@ function NamedGrid({ names, selected, style, field, update }: {
           }}
         >
           <AvatarFigure style={{ ...style, [field]: i }} size={36} />
-          <span className="text-[9px] font-medium leading-tight text-center">{name}</span>
+          <span className="text-[9px] font-medium leading-tight text-center">{names[i]}</span>
         </button>
       ))}
     </div>
