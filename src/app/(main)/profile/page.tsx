@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useTheme } from "next-themes";
 import { useState, useEffect, useRef } from "react";
 import {
   getTicketBalance, getTicketLedger,
@@ -9,7 +8,6 @@ import {
   getMyKycRequest, getKycLevel,
   getSubscription, setSubscription,
   TICKET_PACKAGES, purchaseTickets,
-  getLocationEnabled, setLocationEnabled as saveLocationEnabled,
 } from "@/lib/demo-store";
 import type { DemoProfile, KycRequest, SubscriptionPlan } from "@/lib/demo-store";
 import {
@@ -25,8 +23,6 @@ const SUB_PLANS = [
 ];
 
 export default function ProfilePage() {
-  const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
   const [tickets, setTickets] = useState(18);
   const [ledger, setLedger] = useState<{ delta: number; reason: string; createdAt: string }[]>([]);
   const [profile, setProfile] = useState<DemoProfile | null>(null);
@@ -40,18 +36,14 @@ export default function ProfilePage() {
   const [showLedger, setShowLedger] = useState(false);
   const [showHowTo, setShowHowTo] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"card" | "applepay" | "paypay" | "bank">("card");
-  const [locationEnabled, setLocationEnabled] = useState(false);
-  const [showLocationConfirm, setShowLocationConfirm] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     setTickets(getTicketBalance());
     setLedger(getTicketLedger());
     setProfile(getProfile());
     setKycReq(getMyKycRequest());
     setKycLevel(getKycLevel());
     setSub(getSubscription());
-    setLocationEnabled(getLocationEnabled());
   }, []);
 
   if (!profile) return null;
@@ -340,7 +332,7 @@ export default function ProfilePage() {
       <div className="mt-6 h-px" style={{ backgroundColor: "var(--border)" }} />
 
       {/* Tickets */}
-      <section className="mt-6">
+      <section id="tickets" className="mt-6">
         <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>チケット</h2>
         <div className="mt-2 card p-4">
           <div className="flex items-center justify-between">
@@ -426,60 +418,6 @@ export default function ProfilePage() {
 
       <div className="mt-6 space-y-6">
         <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>表示</h2>
-          <div className="mt-2 flex items-center justify-between rounded-xl p-3 text-sm">
-            <span>ダークモード</span>
-            {mounted && (
-              <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors" style={{ backgroundColor: theme === "dark" ? "var(--accent)" : "#d1d5db" }}>
-                <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform" style={{ transform: theme === "dark" ? "translateX(1.375rem)" : "translateX(0.25rem)" }} />
-              </button>
-            )}
-          </div>
-          <div className="flex items-center justify-between rounded-xl p-3 text-sm">
-            <div>
-              <span>位置情報</span>
-              <p className="text-[10px]" style={{ color: "var(--muted)" }}>
-                {locationEnabled ? "すれ違い機能で位置情報を使用します" : "位置情報をオフにすると、すれ違い機能が使えません"}
-              </p>
-            </div>
-            <button onClick={() => {
-              if (locationEnabled) {
-                // OFFにする時は確認なし
-                setLocationEnabled(false);
-                saveLocationEnabled(false);
-              } else {
-                // ONにする時は確認ダイアログ
-                setShowLocationConfirm(true);
-              }
-            }} className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors" style={{ backgroundColor: locationEnabled ? "var(--accent)" : "#d1d5db" }}>
-              <span className="inline-block h-4 w-4 transform rounded-full bg-white transition-transform" style={{ transform: locationEnabled ? "translateX(1.375rem)" : "translateX(0.25rem)" }} />
-            </button>
-          </div>
-
-          {/* 位置情報ON確認ダイアログ */}
-          {showLocationConfirm && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center">
-              <div className="absolute inset-0 bg-black/40" onClick={() => setShowLocationConfirm(false)} />
-              <div className="relative rounded-2xl p-6 mx-6 w-full max-w-sm shadow-xl" style={{ backgroundColor: "var(--card)" }}>
-                <p className="text-base font-bold text-center">位置情報をONにしますか？</p>
-                <p className="mt-2 text-xs text-center" style={{ color: "var(--muted)" }}>
-                  すれ違い機能であなたの現在地を使用します。ブラウザから位置情報の許可を求められる場合があります。
-                </p>
-                <div className="mt-5 flex gap-3">
-                  <button onClick={() => setShowLocationConfirm(false)}
-                    className="btn-outline flex-1 text-sm !py-2.5">いいえ</button>
-                  <button onClick={() => {
-                    setLocationEnabled(true);
-                    saveLocationEnabled(true);
-                    setShowLocationConfirm(false);
-                  }}
-                    className="btn-primary flex-1 text-sm !py-2.5">はい</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </section>
-        <section>
           <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>SLOTYの使い方</h2>
           <button onClick={() => setShowHowTo(!showHowTo)} className="mt-2 w-full flex items-center justify-between rounded-xl p-3 text-sm transition-colors hover:opacity-80" style={{ backgroundColor: "var(--accent-soft)" }}>
             <span>📖 はじめてのSLOTY</span>
@@ -533,44 +471,7 @@ export default function ProfilePage() {
           )}
         </section>
 
-        <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>アカウント</h2>
-          <div className="mt-2 space-y-1">
-            <SettingsRow label="マイプロフィール" href="/profile" />
-            <SettingsRow label="アカウント設定" href="/account" />
-            <SettingsRow label="本人確認" href="/verify" />
-          </div>
-        </section>
-        <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>その他</h2>
-          <div className="mt-2 space-y-1">
-            <SettingsRow label="メッセージ" href="/messages" />
-            <SettingsRow label="ピン受信箱" href="/pings" />
-            <SettingsRow label="依頼受信箱" href="/requests/inbox" />
-            <SettingsRow label="予約管理" href="/bookings" />
-            <SettingsRow label="フレンド" href="/friends" />
-            <SettingsRow label="非公開予定管理" href="/friends/events" />
-          </div>
-        </section>
-        <section>
-          <h2 className="text-xs font-semibold uppercase tracking-wider" style={{ color: "var(--muted)" }}>法的情報</h2>
-          <div className="mt-2 space-y-1">
-            <SettingsRow label="利用規約" href="/legal/terms" />
-            <SettingsRow label="プライバシーポリシー" href="/legal/privacy" />
-            <SettingsRow label="特定商取引法に基づく表示" href="/legal/tokusho" />
-            <SettingsRow label="お問い合わせ" href="/support" />
-          </div>
-        </section>
       </div>
     </div>
-  );
-}
-
-function SettingsRow({ label, href }: { label: string; href: string }) {
-  return (
-    <Link href={href} className="flex items-center justify-between rounded-xl p-3 text-sm transition-colors hover:opacity-80">
-      <span>{label}</span>
-      <span style={{ color: "var(--muted)" }}>→</span>
-    </Link>
   );
 }

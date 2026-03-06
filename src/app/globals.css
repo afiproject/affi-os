@@ -5,7 +5,7 @@
 @layer base {
   :root {
     /* ── Layout ── */
-    --bg: #ffffff;
+    --bg: #faf9fd;
     --card: #ffffff;
     --text: #1e1e2f;
     --muted: #7c7f8a;
@@ -20,9 +20,26 @@
     --accent-soft-text: #6e5dcc;
     --ring: rgba(155, 138, 251, 0.45);
 
+    /* ── SLOTY gradient ── */
+    --gradient-main: linear-gradient(135deg, #7B8CFF 0%, #B79DFF 45%, #F3A7C6 100%);
+    --gradient-soft: linear-gradient(135deg, rgba(123,140,255,0.08) 0%, rgba(183,157,255,0.08) 45%, rgba(243,167,198,0.06) 100%);
+
     /* ── Semantic ── */
     --success: #34c77b;
     --danger: #e8453c;
+
+    /* ── Spacing scale ── */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+
+    /* ── Radius ── */
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-full: 9999px;
   }
 
   .dark {
@@ -47,9 +64,11 @@
   body {
     background-color: var(--bg);
     color: var(--text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Legacy aliases for any remaining var(--color-*) refs */
+  /* Legacy aliases */
   :root {
     --color-bg: var(--bg);
     --color-card: var(--card);
@@ -64,16 +83,16 @@
 @layer components {
   /* ── Primary button ── */
   .btn-primary {
-    @apply rounded-xl px-6 py-3 font-semibold transition-all;
+    @apply rounded-2xl px-6 py-3.5 font-semibold transition-all text-sm;
     background: linear-gradient(135deg, var(--accent), var(--accent-hover));
     color: var(--accent-fg);
-    box-shadow: 0 2px 8px var(--ring);
+    box-shadow: 0 4px 16px var(--ring);
   }
   .btn-primary:hover {
     background: linear-gradient(135deg, var(--accent-hover), var(--accent-active));
   }
   .btn-primary:active {
-    transform: scale(0.98);
+    transform: scale(0.97);
   }
   .btn-primary:disabled {
     @apply opacity-40 cursor-not-allowed;
@@ -82,7 +101,7 @@
 
   /* ── Outline button ── */
   .btn-outline {
-    @apply rounded-xl px-4 py-2 text-sm font-medium transition-colors;
+    @apply rounded-2xl px-4 py-2.5 text-sm font-medium transition-colors;
     border: 1px solid var(--border);
     color: var(--text);
   }
@@ -97,7 +116,7 @@
     @apply rounded-2xl p-4;
     background-color: var(--card);
     border: 1px solid var(--border);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
   }
 
   /* ── Tabs ── */
@@ -113,12 +132,12 @@
 
   /* ── Chips ── */
   .chip {
-    @apply rounded-full px-3 py-1.5 text-xs font-medium transition-colors;
+    @apply rounded-full px-3.5 py-2 text-xs font-medium transition-colors;
   }
   .chip-active {
     background-color: var(--accent);
     color: var(--accent-fg);
-    box-shadow: 0 1px 4px var(--ring);
+    box-shadow: 0 2px 8px var(--ring);
   }
   .chip-inactive {
     background-color: var(--accent-soft);
@@ -131,8 +150,8 @@
 
   /* ── Input ── */
   .input {
-    @apply w-full rounded-xl p-3 text-sm;
-    background-color: var(--bg);
+    @apply w-full rounded-xl p-3.5 text-sm;
+    background-color: var(--card);
     border: 1px solid var(--border);
     color: var(--text);
   }
@@ -141,4 +160,88 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--ring);
   }
+
+  /* ── Section heading ── */
+  .section-title {
+    @apply text-xs font-semibold tracking-wider uppercase;
+    color: var(--muted);
+  }
+
+  /* ── Settings row ── */
+  .settings-row {
+    @apply flex items-center justify-between rounded-xl px-4 py-3.5 text-sm transition-colors;
+    background-color: var(--card);
+  }
+  .settings-row:active {
+    opacity: 0.7;
+  }
+}
+
+/* ── Avatar plaza animations — Pigg-style: bouncy, cute, lively ── */
+
+/* Idle: gentle bob — slightly bouncy Pigg feel */
+@keyframes avatar-idle {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-2px) rotate(0.4deg); }
+  50% { transform: translateY(-3px) rotate(-0.3deg); }
+  75% { transform: translateY(-1px) rotate(0.2deg); }
+}
+
+/* Walk: bouncy step */
+@keyframes avatar-walk {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-4px) rotate(-2deg); }
+  75% { transform: translateY(-4px) rotate(2deg); }
+}
+
+/* Blink */
+@keyframes avatar-blink {
+  0%, 90%, 100% { transform: scaleY(1); }
+  93% { transform: scaleY(0.1); }
+  96% { transform: scaleY(1); }
+}
+
+.animate-avatar-idle {
+  animation: avatar-idle 3.5s ease-in-out infinite;
+}
+.animate-avatar-walk {
+  animation: avatar-walk 0.9s ease-in-out infinite;
+}
+
+/* Eyes blink — Pigg viewBox coordinate origin */
+.avatar-eyes {
+  transform-origin: 50px 38px;
+  animation: avatar-blink 4s ease-in-out infinite;
+}
+
+/* Head gentle tilt */
+@keyframes avatar-head-tilt {
+  0%, 100% { transform: rotate(0deg); }
+  40% { transform: rotate(0.6deg); }
+  70% { transform: rotate(-0.4deg); }
+}
+[data-part="head"] {
+  transform-origin: 50px 36px;
+  animation: avatar-head-tilt 5s ease-in-out infinite;
+}
+
+/* ── Plaza ambient float particles ── */
+@keyframes plaza-float {
+  0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
+  15% { opacity: 0.5; }
+  50% { transform: translateY(-20px) translateX(8px); opacity: 0.3; }
+  85% { opacity: 0.5; }
+}
+.animate-plaza-float {
+  animation: plaza-float 8s ease-in-out infinite;
+}
+
+/* ── Bottom sheet animations ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }

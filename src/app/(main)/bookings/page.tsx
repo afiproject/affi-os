@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   getBookings, updateBookingStatus, createRoom, getPrivateEvents,
   addBookingCalendarEvent, removeBookingCalendarEvent,
+  getRooms, getMessages,
 } from "@/lib/demo-store";
 import type { DemoBooking } from "@/lib/demo-store";
 import { CATEGORY_LABELS, DEMO_USER } from "@/lib/demo-data";
@@ -16,11 +18,14 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   cancelled: { label: "キャンセル", color: "var(--danger)" },
 };
 
+type TabKey = "active" | "pending" | "past" | "messages";
+
 export default function BookingsPage() {
   const router = useRouter();
   const [bookings, setBookings] = useState<DemoBooking[]>([]);
-  const [tab, setTab] = useState<"active" | "past">("active");
+  const [tab, setTab] = useState<TabKey>("active");
   const [calendarIds, setCalendarIds] = useState<Set<string>>(new Set());
+  const [rooms, setRooms] = useState<ReturnType<typeof getRooms>>([]);
 
   function refreshCalendarIds() {
     const events = getPrivateEvents();
@@ -31,17 +36,17 @@ export default function BookingsPage() {
   useEffect(() => {
     setBookings(getBookings());
     refreshCalendarIds();
+    setRooms(getRooms());
   }, []);
 
-  const active = bookings.filter((b) => b.status === "confirmed" || b.status === "pending");
-  const past = bookings.filter((b) => b.status === "completed" || b.status === "cancelled");
-  const shown = tab === "active" ? active : past;
+  const confirmed = bookings.filter(b => b.status === "confirmed");
+  const pending = bookings.filter(b => b.status === "pending");
+  const past = bookings.filter(b => b.status === "completed" || b.status === "cancelled");
 
   function handleConfirm(id: string) {
     updateBookingStatus(id, "confirmed");
     const updated = getBookings();
     setBookings(updated);
-    // Auto-add calendar event on confirm
     const booking = updated.find(b => b.id === id);
     if (booking) addBookingCalendarEvent(booking);
     refreshCalendarIds();
@@ -54,7 +59,6 @@ export default function BookingsPage() {
 
   function handleCancel(id: string) {
     updateBookingStatus(id, "cancelled");
-    // Remove calendar event on cancel
     removeBookingCalendarEvent(id);
     setBookings(getBookings());
     refreshCalendarIds();
@@ -81,84 +85,138 @@ export default function BookingsPage() {
     return now >= start && now <= end;
   }
 
+  const tabs: { key: TabKey; label: string; count: number }[] = [
+    { key: "active", label: "進行中", count: confirmed.length },
+    { key: "pending", label: "承認待ち", count: pending.length },
+    { key: "past", label: "過去", count: past.length },
+    { key: "messages", label: "メッセージ", count: rooms.length },
+  ];
+
+  const shownBookings = tab === "active" ? confirmed : tab === "pending" ? pending : tab === "past" ? past : [];
+
   return (
-    <div className="p-4">
+    <div className="px-5 pt-3 pb-4">
       <h1 className="text-xl font-bold">予約</h1>
 
-      <div className="mt-4 flex" style={{ borderBottom: "1px solid var(--border)" }}>
-        {(["active", "past"] as const).map((t) => (
-          <button key={t}
-            className={`flex-1 pb-2 text-center text-sm ${tab === t ? "tab-active" : "tab-inactive"}`}
-            onClick={() => setTab(t)}>
-            {t === "active" ? `進行中 (${active.length})` : `過去 (${past.length})`}
+      <div className="mt-4 flex gap-1.5 overflow-x-auto pb-1">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            className={`chip whitespace-nowrap ${tab === t.key ? "chip-active" : "chip-inactive"}`}
+            onClick={() => setTab(t.key)}
+          >
+            {t.label}
+            {t.count > 0 && <span className="ml-1 opacity-70">({t.count})</span>}
           </button>
         ))}
       </div>
 
-      <div className="mt-4 space-y-3">
-        {shown.length === 0 && (
-          <div className="card p-6 text-center">
-            <p className="text-3xl">📋</p>
-            <p className="mt-2 text-sm" style={{ color: "var(--muted)" }}>
-              {tab === "active" ? "進行中の予約はありません" : "過去の予約はありません"}
-            </p>
-            {tab === "active" && <button onClick={() => router.push("/market")} className="btn-primary mt-3 text-sm">マーケットで探す</button>}
-          </div>
-        )}
-        {shown.map((b) => {
-          const st = STATUS_LABELS[b.status];
-          const start = new Date(b.slot.startAt);
-          const roomReady = canOpenRoom(b);
-          const onCalendar = calendarIds.has(b.id);
-          return (
-            <div key={b.id} className="card p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span>{b.slot.mode === "call" ? "📞" : "🚶"}</span>
-                  <span className="font-medium">{CATEGORY_LABELS[b.slot.category] ?? b.slot.category}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  {onCalendar && (
-                    <span className="rounded-full px-1.5 py-0.5 text-[9px] font-medium"
-                      style={{ backgroundColor: "rgba(52,199,123,0.12)", color: "var(--success)" }}>
-                      📅 カレンダー済
+      {tab === "messages" ? (
+        <div className="mt-4 space-y-3">
+          {rooms.length === 0 ? (
+            <EmptyState icon="💬" text="メッセージはまだありません" />
+          ) : (
+            rooms.map((room) => {
+              const partner = room.participants.find(p => p.id !== DEMO_USER.id);
+              const msgs = getMessages(room.id);
+              const lastMsg = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+              const isEnded = room.endAt && new Date(room.endAt).getTime() < Date.now();
+              return (
+                <Link
+                  key={room.id}
+                  href={`/rooms/${room.id}`}
+                  className="flex items-center gap-3 rounded-2xl px-4 py-3.5 transition-all active:scale-[0.98]"
+                  style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", opacity: isEnded ? 0.5 : 1 }}
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                    style={{ backgroundColor: "var(--accent-soft)", color: "var(--accent-soft-text)" }}>
+                    {partner?.displayName?.[0] ?? "?"}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold truncate">{partner?.displayName ?? "不明"}</span>
+                      {isEnded && <span className="text-[10px] rounded-full px-1.5 py-0.5" style={{ color: "var(--muted)", backgroundColor: "var(--accent-soft)" }}>終了</span>}
+                    </div>
+                    {lastMsg && <p className="mt-0.5 text-xs truncate" style={{ color: "var(--muted)" }}>{lastMsg.text}</p>}
+                  </div>
+                </Link>
+              );
+            })
+          )}
+        </div>
+      ) : (
+        <div className="mt-4 space-y-3">
+          {shownBookings.length === 0 && (
+            <EmptyState
+              icon="📋"
+              text={tab === "active" ? "進行中の予約はありません" : tab === "pending" ? "承認待ちはありません" : "過去の予約はありません"}
+              action={tab === "active" ? { label: "スロットを探す", href: "/market" } : undefined}
+            />
+          )}
+          {shownBookings.map((b) => {
+            const st = STATUS_LABELS[b.status];
+            const start = new Date(b.slot.startAt);
+            const roomReady = canOpenRoom(b);
+            return (
+              <div key={b.id} className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
+                <div className="px-4 pt-4 pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{b.slot.mode === "call" ? "📞" : "🚶"}</span>
+                      <span className="text-sm font-semibold">{CATEGORY_LABELS[b.slot.category] ?? b.slot.category}</span>
+                    </div>
+                    <span className="rounded-full px-2.5 py-1 text-xs font-medium" style={{ backgroundColor: "var(--accent-soft)", color: st.color }}>
+                      {st.label}
                     </span>
-                  )}
-                  <span className="rounded-full px-2 py-0.5 text-xs font-medium" style={{ backgroundColor: "var(--accent-soft)", color: st.color }}>{st.label}</span>
+                  </div>
+                  <div className="mt-3 space-y-1.5 text-sm" style={{ color: "var(--muted)" }}>
+                    <p>{start.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" })} {start.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</p>
+                    <div className="flex items-center justify-between">
+                      <span>{b.slot.seller.displayName}</span>
+                      <span className="font-semibold" style={{ color: "var(--accent)" }}>{b.slot.priceYen}🎫</span>
+                    </div>
+                  </div>
                 </div>
+                {(roomReady || b.status === "confirmed" || b.status === "pending") && (
+                  <div className="px-4 pb-4 flex gap-2">
+                    {roomReady && (
+                      <>
+                        <button onClick={() => handleOpenRoom(b)} className="btn-primary flex-1 !py-2.5 text-xs">💬 チャット</button>
+                        <button onClick={() => { const room = createRoom(b.id, [{ id: DEMO_USER.id, displayName: DEMO_USER.displayName }, { id: b.slot.seller.id, displayName: b.slot.seller.displayName }], b.slot.startAt, b.slot.endAt); router.push(`/rooms/${room.id}/call`); }}
+                          className="btn-outline flex-1 !py-2.5 text-xs">📞</button>
+                        <button onClick={() => { const room = createRoom(b.id, [{ id: DEMO_USER.id, displayName: DEMO_USER.displayName }, { id: b.slot.seller.id, displayName: b.slot.seller.displayName }], b.slot.startAt, b.slot.endAt); router.push(`/rooms/${room.id}/video`); }}
+                          className="btn-outline flex-1 !py-2.5 text-xs">📹</button>
+                      </>
+                    )}
+                    {b.status === "confirmed" && !roomReady && (
+                      <>
+                        <button onClick={() => handleComplete(b.id)} className="btn-primary flex-1 !py-2.5 text-xs">完了にする</button>
+                        <button onClick={() => handleCancel(b.id)} className="btn-outline flex-1 !py-2.5 text-xs" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>キャンセル</button>
+                      </>
+                    )}
+                    {b.status === "pending" && (
+                      <>
+                        <button onClick={() => handleConfirm(b.id)} className="btn-primary flex-1 !py-2.5 text-xs">承認</button>
+                        <button onClick={() => handleCancel(b.id)} className="btn-outline flex-1 !py-2.5 text-xs" style={{ color: "var(--danger)", borderColor: "var(--danger)" }}>拒否</button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="mt-2 space-y-1 text-sm" style={{ color: "var(--muted)" }}>
-                <p>📅 {start.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric", weekday: "short" })} {start.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}</p>
-                <p>👤 {b.slot.seller.displayName}</p>
-                <p>🎫 {b.slot.priceYen}枚</p>
-              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
-              {roomReady && (
-                <div className="mt-3 flex gap-2">
-                  <button onClick={() => handleOpenRoom(b)} className="btn-primary flex-1 text-xs !py-2">💬 チャット</button>
-                  <button onClick={() => { const room = createRoom(b.id, [{ id: DEMO_USER.id, displayName: DEMO_USER.displayName }, { id: b.slot.seller.id, displayName: b.slot.seller.displayName }], b.slot.startAt, b.slot.endAt); router.push(`/rooms/${room.id}/call`); }}
-                    className="btn-outline flex-1 text-xs !py-2">📞 音声</button>
-                  <button onClick={() => { const room = createRoom(b.id, [{ id: DEMO_USER.id, displayName: DEMO_USER.displayName }, { id: b.slot.seller.id, displayName: b.slot.seller.displayName }], b.slot.startAt, b.slot.endAt); router.push(`/rooms/${room.id}/video`); }}
-                    className="btn-outline flex-1 text-xs !py-2">📹 ビデオ</button>
-                </div>
-              )}
-
-              {b.status === "confirmed" && !roomReady && (
-                <div className="mt-3 flex gap-2">
-                  <button onClick={() => handleComplete(b.id)} className="btn-primary flex-1 text-xs !py-2">完了にする</button>
-                  <button onClick={() => handleCancel(b.id)} className="btn-outline flex-1 text-xs" style={{ color: "var(--danger)" }}>キャンセル</button>
-                </div>
-              )}
-              {b.status === "pending" && (
-                <div className="mt-3 flex gap-2">
-                  <button onClick={() => handleConfirm(b.id)} className="btn-primary flex-1 text-xs !py-2">承認（デモ）</button>
-                  <button onClick={() => handleCancel(b.id)} className="btn-outline flex-1 text-xs" style={{ color: "var(--danger)" }}>拒否</button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+function EmptyState({ icon, text, action }: { icon: string; text: string; action?: { label: string; href: string } }) {
+  return (
+    <div className="flex flex-col items-center gap-2 py-12">
+      <span className="text-4xl">{icon}</span>
+      <p className="text-sm" style={{ color: "var(--muted)" }}>{text}</p>
+      {action && <Link href={action.href} className="btn-primary mt-2 text-sm">{action.label}</Link>}
     </div>
   );
 }

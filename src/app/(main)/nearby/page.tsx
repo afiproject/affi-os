@@ -202,11 +202,11 @@ export default function NearbyPage() {
             <p className="text-base font-bold text-white">位置情報がOFFです</p>
             <p className="mt-2 text-xs text-white/60 leading-relaxed">
               すれ違い機能を使うには位置情報をONにしてください。<br/>
-              プロフィール設定から変更できます。
+              マイページの設定から変更できます。
             </p>
-            <Link href="/profile" className="mt-4 rounded-full px-5 py-2.5 text-sm font-medium transition-transform active:scale-95"
+            <Link href="/mypage#location" className="mt-4 rounded-full px-5 py-2.5 text-sm font-medium transition-transform active:scale-95"
               style={{ backgroundColor: "var(--accent)", color: "var(--accent-fg)" }}>
-              設定を開く
+              設定に移動
             </Link>
           </div>
         ) : !hasLocation ? (
