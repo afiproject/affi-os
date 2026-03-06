@@ -436,15 +436,16 @@ function renderHairBack(style: number, color: string, colorD: string, a: Anchors
 
 function renderHairCap(color: string, a: Anchors) {
   const { headCx: hx, headCy: hy, headRx: rx, headRy: ry } = a;
-  // Dome covering scalp from hairline up, extending above skull for anime-style volume.
-  // Uses a cubic bezier arch — wider than the skull for natural hair volume.
+  // Semi-elliptical arc dome — matches head proportions for a natural silhouette.
+  // Extends above skull crown for anime-style hair volume.
   // Rendered BEFORE face features so eyes/mouth stay visible on top.
-  const w = rx + 3;              // Wider than head for volume
-  const top = hy - ry - 5;       // Extends above skull crown
-  const sideY = hy - ry * 0.05;  // Natural hairline level (just above ears)
+  const w = rx + 3;                  // Half-width: wider than head for volume
+  const baseY = hy - ry * 0.15;     // Hairline level (just above browLine)
+  const domeH = ry * 0.95;          // Dome height: peak well above skull top
+  // SVG elliptical arc: sweep=0 draws the upper (counter-clockwise) arc
   return (
     <path
-      d={`M${hx - w},${sideY} C${hx - w},${top - 2} ${hx + w},${top - 2} ${hx + w},${sideY} Z`}
+      d={`M${hx - w},${baseY} A${w},${domeH} 0 0,0 ${hx + w},${baseY} Z`}
       fill={color}
     />
   );
