@@ -424,21 +424,27 @@ export const DEMO_POIS: { id: string; name: string; category: string; lat: numbe
 
 // ===== アバター広場データ =====
 export type AvatarStyle = {
-  hairStyle: number;   // 0-5
+  hairStyle: number;   // 0-7
   hairColor: string;   // hex
   skinTone: string;    // hex
   topColor: string;    // hex (shirt/top)
+  topType: number;     // 0=crew-neck tee, 1=v-neck, 2=collared shirt, 3=hoodie, 4=cardigan, 5=blouse
   bottomColor: string; // hex
-  accessory: number;   // 0=none, 1=glasses, 2=hat, 3=headphones
-  expression: number;  // 0=neutral, 1=smile, 2=wink, 3=happy
+  bottomType: number;  // 0=slim pants, 1=wide pants, 2=skirt, 3=shorts
+  accessory: number;   // 0=none, 1=glasses, 2=hat, 3=headphones, 4=earrings, 5=scarf
+  expression: number;  // 0=neutral, 1=smile, 2=wink, 3=happy, 4=gentle, 5=cool
+  bodyPose: number;    // 0=relaxed, 1=hand-on-hip, 2=arms-crossed, 3=wave, 4=hands-behind
+  eyeType: number;     // 0=round, 1=almond, 2=soft-droopy, 3=sharp
+  eyeColor: string;    // hex
+  cheekColor: string;  // hex (blush)
 };
 
 export const DEFAULT_AVATAR_STYLES: Record<string, AvatarStyle> = {
-  "user-a": { hairStyle: 2, hairColor: "#5C3317", skinTone: "#FFDBB4", topColor: "#f093fb", bottomColor: "#4A4A6A", accessory: 0, expression: 1 },
-  "user-b": { hairStyle: 0, hairColor: "#2C2C2C", skinTone: "#F5CBA7", topColor: "#4facfe", bottomColor: "#3D3D5C", accessory: 1, expression: 0 },
-  "user-c": { hairStyle: 3, hairColor: "#8B4513", skinTone: "#FFE0BD", topColor: "#43e97b", bottomColor: "#5C5C8A", accessory: 0, expression: 3 },
-  "user-d": { hairStyle: 1, hairColor: "#1A1A2E", skinTone: "#F0C8A0", topColor: "#fa709a", bottomColor: "#3A3A5E", accessory: 3, expression: 2 },
-  "user-e": { hairStyle: 4, hairColor: "#6B3FA0", skinTone: "#FFDBB4", topColor: "#a18cd1", bottomColor: "#4B4B7A", accessory: 0, expression: 1 },
+  "user-a": { hairStyle: 2, hairColor: "#5C3317", skinTone: "#FFDBB4", topColor: "#f093fb", topType: 5, bottomColor: "#4A4A6A", bottomType: 2, accessory: 0, expression: 1, bodyPose: 0, eyeType: 0, eyeColor: "#4A3520", cheekColor: "#FFB4B4" },
+  "user-b": { hairStyle: 0, hairColor: "#2C2C2C", skinTone: "#F5CBA7", topColor: "#4facfe", topType: 2, bottomColor: "#3D3D5C", bottomType: 0, accessory: 1, expression: 0, bodyPose: 1, eyeType: 3, eyeColor: "#2A2A3A", cheekColor: "#F0C0A0" },
+  "user-c": { hairStyle: 3, hairColor: "#8B4513", skinTone: "#FFE0BD", topColor: "#E8F0E8", topType: 4, bottomColor: "#5C5C8A", bottomType: 2, accessory: 0, expression: 3, bodyPose: 3, eyeType: 2, eyeColor: "#5A4030", cheekColor: "#FFBCBC" },
+  "user-d": { hairStyle: 1, hairColor: "#1A1A2E", skinTone: "#F0C8A0", topColor: "#666680", topType: 3, bottomColor: "#3A3A5E", bottomType: 0, accessory: 3, expression: 5, bodyPose: 2, eyeType: 3, eyeColor: "#1A1A2E", cheekColor: "#E8B8A0" },
+  "user-e": { hairStyle: 4, hairColor: "#6B3FA0", skinTone: "#FFDBB4", topColor: "#a18cd1", topType: 0, bottomColor: "#4B4B7A", bottomType: 1, accessory: 4, expression: 1, bodyPose: 0, eyeType: 0, eyeColor: "#6B3FA0", cheekColor: "#F5B0D0" },
 };
 
 export type SquareVisitor = {
@@ -520,7 +526,7 @@ export const DEMO_SQUARE_VISITORS: SquareVisitor[] = [
   {
     // Path intersection area — left
     id: "sv-6", userId: "user-f", displayName: "りょう", gender: "男性",
-    avatarStyle: { hairStyle: 5, hairColor: "#2C2C2C", skinTone: "#F5CBA7", topColor: "#667eea", bottomColor: "#3D3D5C", accessory: 0, expression: 0 },
+    avatarStyle: { hairStyle: 5, hairColor: "#2C2C2C", skinTone: "#F5CBA7", topColor: "#667eea", topType: 0, bottomColor: "#3D3D5C", bottomType: 0, accessory: 0, expression: 0, bodyPose: 1, eyeType: 1, eyeColor: "#2A2A3A", cheekColor: "#E8C0A8" },
     bubble: "ちょい暇", mode: "call", tags: ["雑談", "ゲーム"], verified: true,
     availability: "1時間OK", area: "渋谷", bio: "デザイナーやってます。ゲーム雑談なんでも",
     ratingAvg: 4.4, ratingCount: 18, x: 35, y: 37, lastActive: new Date(Date.now() - 2 * 60_000).toISOString(),
@@ -528,7 +534,7 @@ export const DEMO_SQUARE_VISITORS: SquareVisitor[] = [
   {
     // Near right tree — observing from a distance
     id: "sv-7", userId: "user-g", displayName: "ことね", gender: "女性",
-    avatarStyle: { hairStyle: 4, hairColor: "#8B4513", skinTone: "#FFE0BD", topColor: "#FF6B6B", bottomColor: "#4A4A6A", accessory: 0, expression: 1 },
+    avatarStyle: { hairStyle: 4, hairColor: "#8B4513", skinTone: "#FFE0BD", topColor: "#FF6B6B", topType: 5, bottomColor: "#4A4A6A", bottomType: 2, accessory: 4, expression: 1, bodyPose: 0, eyeType: 2, eyeColor: "#5A4030", cheekColor: "#FFBCBC" },
     bubble: "カフェ行ける人", mode: "in_person", tags: ["カフェ"], verified: false,
     availability: "今からOK", area: "新宿", bio: "カフェ巡りが趣味です☕",
     ratingAvg: 4.2, ratingCount: 8, x: 85, y: 42, lastActive: new Date(Date.now() - 4 * 60_000).toISOString(),
@@ -536,7 +542,7 @@ export const DEMO_SQUARE_VISITORS: SquareVisitor[] = [
   {
     // Near left tree — slightly apart
     id: "sv-8", userId: "user-h", displayName: "そうた", gender: "男性",
-    avatarStyle: { hairStyle: 0, hairColor: "#1A1A2E", skinTone: "#F0C8A0", topColor: "#2C2C2C", bottomColor: "#3A3A5E", accessory: 1, expression: 2 },
+    avatarStyle: { hairStyle: 6, hairColor: "#1A1A2E", skinTone: "#F0C8A0", topColor: "#2C2C2C", topType: 2, bottomColor: "#3A3A5E", bottomType: 0, accessory: 1, expression: 4, bodyPose: 4, eyeType: 1, eyeColor: "#2A2A3A", cheekColor: "#E0B8A0" },
     bubble: "30分だけOK", mode: "either", tags: ["相談", "作業"], verified: true,
     availability: "30分OK", area: "", bio: "フリーランスエンジニア。気軽にどうぞ",
     ratingAvg: 4.7, ratingCount: 35, x: 15, y: 40, lastActive: new Date(Date.now() - 7 * 60_000).toISOString(),
@@ -544,13 +550,19 @@ export const DEMO_SQUARE_VISITORS: SquareVisitor[] = [
 ];
 
 // ===== 着せ替えオプション =====
-export const HAIR_STYLE_NAMES = ["ショート", "ミディアム", "ロング", "ボブ", "ポニーテール", "マッシュ"];
-export const HAIR_COLORS = ["#1A1A2E", "#2C2C2C", "#5C3317", "#8B4513", "#D4A574", "#C0392B", "#6B3FA0", "#E8B4B8"];
+export const HAIR_STYLE_NAMES = ["ショート", "ミディアム", "ロング", "ボブ", "ポニーテール", "マッシュ", "センター分け", "ウルフ"];
+export const HAIR_COLORS = ["#1A1A2E", "#2C2C2C", "#5C3317", "#8B4513", "#D4A574", "#C0392B", "#6B3FA0", "#E8B4B8", "#C8A882", "#4A6B8A"];
 export const SKIN_TONES = ["#FFDBB4", "#F5CBA7", "#F0C8A0", "#FFE0BD", "#D4A574", "#C19A6B"];
-export const TOP_COLORS = ["#f093fb", "#4facfe", "#43e97b", "#fa709a", "#a18cd1", "#667eea", "#FF6B6B", "#FFF3E0", "#E0F7FA", "#2C2C2C"];
-export const BOTTOM_COLORS = ["#3A3A5E", "#3D3D5C", "#4A4A6A", "#4B4B7A", "#5C5C8A", "#2C2C2C", "#7B8CFF"];
-export const ACCESSORY_NAMES = ["なし", "メガネ", "帽子", "ヘッドホン"];
-export const EXPRESSION_NAMES = ["ふつう", "にっこり", "ウインク", "わーい"];
+export const TOP_COLORS = ["#f093fb", "#4facfe", "#43e97b", "#fa709a", "#a18cd1", "#667eea", "#FF6B6B", "#FFF3E0", "#E0F7FA", "#2C2C2C", "#E8F0E8", "#666680"];
+export const TOP_TYPE_NAMES = ["Tシャツ", "Vネック", "シャツ", "パーカー", "カーディガン", "ブラウス"];
+export const BOTTOM_COLORS = ["#3A3A5E", "#3D3D5C", "#4A4A6A", "#4B4B7A", "#5C5C8A", "#2C2C2C", "#7B8CFF", "#C4956A"];
+export const BOTTOM_TYPE_NAMES = ["スリムパンツ", "ワイドパンツ", "スカート", "ショートパンツ"];
+export const ACCESSORY_NAMES = ["なし", "メガネ", "帽子", "ヘッドホン", "ピアス", "マフラー"];
+export const EXPRESSION_NAMES = ["ふつう", "にっこり", "ウインク", "わーい", "やさしい", "クール"];
+export const BODY_POSE_NAMES = ["リラックス", "腰に手", "腕組み", "手振り", "後ろ手"];
+export const EYE_TYPE_NAMES = ["まるめ", "アーモンド", "たれ目", "つり目"];
+export const EYE_COLORS = ["#2A2A3A", "#4A3520", "#5A4030", "#1A1A2E", "#6B3FA0", "#4A6B5A"];
+export const CHEEK_COLORS = ["#FFB4B4", "#FFBCBC", "#F5B0D0", "#F0C0A0", "#E8C0A8", "#E8B8A0", "#E0B8A0", "#00000000"];
 
 export const BUBBLE_TEMPLATES = [
   "誰か話そー", "ちょい暇", "通話OK", "対面OK",

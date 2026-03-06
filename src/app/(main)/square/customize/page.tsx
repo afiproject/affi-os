@@ -4,26 +4,35 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AvatarFigure from "@/components/square/AvatarFigure";
 import {
-  HAIR_STYLE_NAMES, HAIR_COLORS, SKIN_TONES, TOP_COLORS,
-  BOTTOM_COLORS, ACCESSORY_NAMES, EXPRESSION_NAMES,
+  HAIR_STYLE_NAMES, HAIR_COLORS, SKIN_TONES, TOP_COLORS, TOP_TYPE_NAMES,
+  BOTTOM_COLORS, BOTTOM_TYPE_NAMES, ACCESSORY_NAMES, EXPRESSION_NAMES,
+  BODY_POSE_NAMES, EYE_TYPE_NAMES, EYE_COLORS, CHEEK_COLORS,
 } from "@/lib/demo-data";
 import type { AvatarStyle } from "@/lib/demo-data";
 
-type Category = "hair" | "hairColor" | "skin" | "top" | "bottom" | "accessory" | "expression";
+type Category = "hair" | "hairColor" | "skin" | "top" | "topType" | "bottom" | "bottomType" | "accessory" | "expression" | "bodyPose" | "eyeType" | "eyeColor" | "cheek";
 
 const CATEGORIES: { key: Category; label: string; icon: string }[] = [
   { key: "hair", label: "髪型", icon: "💇" },
   { key: "hairColor", label: "髪色", icon: "🎨" },
-  { key: "skin", label: "肌", icon: "✋" },
-  { key: "top", label: "トップス", icon: "👕" },
-  { key: "bottom", label: "ボトムス", icon: "👖" },
-  { key: "accessory", label: "アクセ", icon: "🕶️" },
+  { key: "eyeType", label: "目", icon: "👁" },
+  { key: "eyeColor", label: "瞳色", icon: "✨" },
   { key: "expression", label: "表情", icon: "😊" },
+  { key: "cheek", label: "チーク", icon: "🩷" },
+  { key: "skin", label: "肌", icon: "✋" },
+  { key: "topType", label: "服型", icon: "👔" },
+  { key: "top", label: "服色", icon: "👕" },
+  { key: "bottomType", label: "下型", icon: "👗" },
+  { key: "bottom", label: "下色", icon: "👖" },
+  { key: "accessory", label: "アクセ", icon: "🕶️" },
+  { key: "bodyPose", label: "ポーズ", icon: "🧍" },
 ];
 
 const DEFAULT_STYLE: AvatarStyle = {
   hairStyle: 0, hairColor: "#2C2C2C", skinTone: "#FFDBB4",
-  topColor: "#7B8CFF", bottomColor: "#3A3A5E", accessory: 0, expression: 1,
+  topColor: "#7B8CFF", topType: 0, bottomColor: "#3A3A5E", bottomType: 0,
+  accessory: 0, expression: 1, bodyPose: 0,
+  eyeType: 0, eyeColor: "#2A2A3A", cheekColor: "#FFB4B4",
 };
 
 export default function CustomizePage() {
@@ -31,7 +40,6 @@ export default function CustomizePage() {
   const [style, setStyle] = useState<AvatarStyle>(DEFAULT_STYLE);
   const [activeCategory, setActiveCategory] = useState<Category>("hair");
 
-  // Load saved style
   useEffect(() => {
     try {
       const saved = localStorage.getItem("sloty_avatar_style");
@@ -95,20 +103,14 @@ export default function CustomizePage() {
         ))}
       </div>
 
-      {/* Options for active category */}
+      {/* Options */}
       <div className="mt-4 rounded-2xl p-4" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
         {activeCategory === "hair" && (
           <div className="grid grid-cols-3 gap-2">
             {HAIR_STYLE_NAMES.map((name, i) => (
-              <button
-                key={i}
-                onClick={() => update({ hairStyle: i })}
+              <button key={i} onClick={() => update({ hairStyle: i })}
                 className="flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all"
-                style={{
-                  backgroundColor: style.hairStyle === i ? "var(--accent-soft)" : "var(--bg)",
-                  border: style.hairStyle === i ? "2px solid var(--accent)" : "1px solid var(--border)",
-                }}
-              >
+                style={{ backgroundColor: style.hairStyle === i ? "var(--accent-soft)" : "var(--bg)", border: style.hairStyle === i ? "2px solid var(--accent)" : "1px solid var(--border)" }}>
                 <AvatarFigure style={{ ...style, hairStyle: i }} size={40} />
                 <span className="text-[10px]">{name}</span>
               </button>
@@ -116,86 +118,46 @@ export default function CustomizePage() {
           </div>
         )}
 
-        {activeCategory === "hairColor" && (
-          <div className="flex flex-wrap gap-3">
-            {HAIR_COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => update({ hairColor: c })}
-                className="h-10 w-10 rounded-full transition-all"
-                style={{
-                  backgroundColor: c,
-                  border: style.hairColor === c ? "3px solid var(--accent)" : "2px solid var(--border)",
-                  boxShadow: style.hairColor === c ? "0 0 0 2px var(--card)" : "none",
-                }}
-              />
+        {activeCategory === "hairColor" && <ColorGrid colors={HAIR_COLORS} selected={style.hairColor} onSelect={(c) => update({ hairColor: c })} />}
+
+        {activeCategory === "skin" && <ColorGrid colors={SKIN_TONES} selected={style.skinTone} onSelect={(c) => update({ skinTone: c })} />}
+
+        {activeCategory === "top" && <ColorGrid colors={TOP_COLORS} selected={style.topColor} onSelect={(c) => update({ topColor: c })} />}
+
+        {activeCategory === "topType" && (
+          <div className="grid grid-cols-3 gap-2">
+            {TOP_TYPE_NAMES.map((name, i) => (
+              <button key={i} onClick={() => update({ topType: i })}
+                className="flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all"
+                style={{ backgroundColor: style.topType === i ? "var(--accent-soft)" : "var(--bg)", border: style.topType === i ? "2px solid var(--accent)" : "1px solid var(--border)" }}>
+                <AvatarFigure style={{ ...style, topType: i }} size={40} />
+                <span className="text-[10px]">{name}</span>
+              </button>
             ))}
           </div>
         )}
 
-        {activeCategory === "skin" && (
-          <div className="flex flex-wrap gap-3">
-            {SKIN_TONES.map((c) => (
-              <button
-                key={c}
-                onClick={() => update({ skinTone: c })}
-                className="h-10 w-10 rounded-full transition-all"
-                style={{
-                  backgroundColor: c,
-                  border: style.skinTone === c ? "3px solid var(--accent)" : "2px solid var(--border)",
-                  boxShadow: style.skinTone === c ? "0 0 0 2px var(--card)" : "none",
-                }}
-              />
-            ))}
-          </div>
-        )}
+        {activeCategory === "bottom" && <ColorGrid colors={BOTTOM_COLORS} selected={style.bottomColor} onSelect={(c) => update({ bottomColor: c })} />}
 
-        {activeCategory === "top" && (
-          <div className="flex flex-wrap gap-3">
-            {TOP_COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => update({ topColor: c })}
-                className="h-10 w-10 rounded-full transition-all"
-                style={{
-                  backgroundColor: c,
-                  border: style.topColor === c ? "3px solid var(--accent)" : "2px solid var(--border)",
-                  boxShadow: style.topColor === c ? "0 0 0 2px var(--card)" : "none",
-                }}
-              />
-            ))}
-          </div>
-        )}
-
-        {activeCategory === "bottom" && (
-          <div className="flex flex-wrap gap-3">
-            {BOTTOM_COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => update({ bottomColor: c })}
-                className="h-10 w-10 rounded-full transition-all"
-                style={{
-                  backgroundColor: c,
-                  border: style.bottomColor === c ? "3px solid var(--accent)" : "2px solid var(--border)",
-                  boxShadow: style.bottomColor === c ? "0 0 0 2px var(--card)" : "none",
-                }}
-              />
+        {activeCategory === "bottomType" && (
+          <div className="grid grid-cols-2 gap-2">
+            {BOTTOM_TYPE_NAMES.map((name, i) => (
+              <button key={i} onClick={() => update({ bottomType: i })}
+                className="flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all"
+                style={{ backgroundColor: style.bottomType === i ? "var(--accent-soft)" : "var(--bg)", border: style.bottomType === i ? "2px solid var(--accent)" : "1px solid var(--border)" }}>
+                <AvatarFigure style={{ ...style, bottomType: i }} size={40} />
+                <span className="text-[10px]">{name}</span>
+              </button>
             ))}
           </div>
         )}
 
         {activeCategory === "accessory" && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {ACCESSORY_NAMES.map((name, i) => (
-              <button
-                key={i}
-                onClick={() => update({ accessory: i })}
+              <button key={i} onClick={() => update({ accessory: i })}
                 className="flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all"
-                style={{
-                  backgroundColor: style.accessory === i ? "var(--accent-soft)" : "var(--bg)",
-                  border: style.accessory === i ? "2px solid var(--accent)" : "1px solid var(--border)",
-                }}
-              >
+                style={{ backgroundColor: style.accessory === i ? "var(--accent-soft)" : "var(--bg)", border: style.accessory === i ? "2px solid var(--accent)" : "1px solid var(--border)" }}>
                 <AvatarFigure style={{ ...style, accessory: i }} size={40} />
                 <span className="text-[10px]">{name}</span>
               </button>
@@ -204,29 +166,74 @@ export default function CustomizePage() {
         )}
 
         {activeCategory === "expression" && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {EXPRESSION_NAMES.map((name, i) => (
-              <button
-                key={i}
-                onClick={() => update({ expression: i })}
+              <button key={i} onClick={() => update({ expression: i })}
                 className="flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all"
-                style={{
-                  backgroundColor: style.expression === i ? "var(--accent-soft)" : "var(--bg)",
-                  border: style.expression === i ? "2px solid var(--accent)" : "1px solid var(--border)",
-                }}
-              >
+                style={{ backgroundColor: style.expression === i ? "var(--accent-soft)" : "var(--bg)", border: style.expression === i ? "2px solid var(--accent)" : "1px solid var(--border)" }}>
                 <AvatarFigure style={{ ...style, expression: i }} size={40} />
                 <span className="text-[10px]">{name}</span>
               </button>
             ))}
           </div>
         )}
+
+        {activeCategory === "bodyPose" && (
+          <div className="grid grid-cols-3 gap-2">
+            {BODY_POSE_NAMES.map((name, i) => (
+              <button key={i} onClick={() => update({ bodyPose: i })}
+                className="flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all"
+                style={{ backgroundColor: style.bodyPose === i ? "var(--accent-soft)" : "var(--bg)", border: style.bodyPose === i ? "2px solid var(--accent)" : "1px solid var(--border)" }}>
+                <AvatarFigure style={{ ...style, bodyPose: i }} size={40} />
+                <span className="text-[10px]">{name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {activeCategory === "eyeType" && (
+          <div className="grid grid-cols-2 gap-2">
+            {EYE_TYPE_NAMES.map((name, i) => (
+              <button key={i} onClick={() => update({ eyeType: i })}
+                className="flex flex-col items-center gap-1.5 rounded-xl p-3 transition-all"
+                style={{ backgroundColor: style.eyeType === i ? "var(--accent-soft)" : "var(--bg)", border: style.eyeType === i ? "2px solid var(--accent)" : "1px solid var(--border)" }}>
+                <AvatarFigure style={{ ...style, eyeType: i }} size={40} />
+                <span className="text-[10px]">{name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {activeCategory === "eyeColor" && <ColorGrid colors={EYE_COLORS} selected={style.eyeColor} onSelect={(c) => update({ eyeColor: c })} />}
+
+        {activeCategory === "cheek" && <ColorGrid colors={CHEEK_COLORS} selected={style.cheekColor} onSelect={(c) => update({ cheekColor: c })} />}
       </div>
 
       {/* Save */}
       <button onClick={save} className="btn-primary mt-6 w-full">
         保存する
       </button>
+    </div>
+  );
+}
+
+function ColorGrid({ colors, selected, onSelect }: { colors: string[]; selected: string; onSelect: (c: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-3">
+      {colors.map((c) => (
+        <button
+          key={c}
+          onClick={() => onSelect(c)}
+          className="h-10 w-10 rounded-full transition-all"
+          style={{
+            backgroundColor: c === "#00000000" ? "transparent" : c,
+            border: selected === c ? "3px solid var(--accent)" : c === "#00000000" ? "2px dashed var(--border)" : "2px solid var(--border)",
+            boxShadow: selected === c ? "0 0 0 2px var(--card)" : "none",
+          }}
+        >
+          {c === "#00000000" && <span className="text-[10px]" style={{ color: "var(--muted)" }}>なし</span>}
+        </button>
+      ))}
     </div>
   );
 }
