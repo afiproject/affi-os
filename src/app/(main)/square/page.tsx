@@ -37,12 +37,14 @@ export default function SquarePage() {
 
   // Initialize
   useEffect(() => {
+    // Only show visitors that have CHARAT avatar images (image-based display)
+    const imageVisitors = DEMO_SQUARE_VISITORS.filter((v) => v.avatarImage);
     setVisitors(
-      DEMO_SQUARE_VISITORS.map((v, i) => ({
+      imageVisitors.map((v, i) => ({
         ...v,
         dx: 0,
         dy: 0,
-        showBubble: i < 4, // Only first few show bubbles initially
+        showBubble: i < 4,
         facing: Math.random() > 0.5 ? "left" : "right",
       }))
     );
@@ -156,9 +158,10 @@ export default function SquarePage() {
         </div>
 
         {/* ── Visitor avatars ── */}
-        {visitors.map((v) => {
+        {visitors.map((v, idx) => {
           const zIndex = Math.round(v.y + v.dy);
-          const avatarSize = 62 + Math.round((v.y / 100) * 16); // Pigg avatars — bigger heads, more visible
+          const avatarSize = 62 + Math.round((v.y / 100) * 16);
+          const hasImage = !!v.avatarImage;
 
           return (
             <button
@@ -188,7 +191,40 @@ export default function SquarePage() {
                     pointerEvents: "none",
                   }}
                 />
-                <AvatarFigure style={v.avatarStyle} size={avatarSize} animate="idle" />
+
+                {hasImage ? (
+                  /* ── Image-based avatar (CHARAT) ── */
+                  <div className="flex flex-col items-center">
+                    <img
+                      src={v.avatarImage}
+                      alt={v.displayName}
+                      className="animate-avatar-float"
+                      style={{
+                        width: avatarSize,
+                        height: avatarSize,
+                        objectFit: "contain",
+                        animationDelay: `${idx * 0.6}s`,
+                        filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.08))",
+                      }}
+                      draggable={false}
+                    />
+                    {/* Foot shadow */}
+                    <div
+                      className="animate-avatar-shadow"
+                      style={{
+                        width: avatarSize * 0.5,
+                        height: avatarSize * 0.12,
+                        borderRadius: "50%",
+                        backgroundColor: "rgba(0,0,0,0.12)",
+                        marginTop: -2,
+                        animationDelay: `${idx * 0.6}s`,
+                      }}
+                    />
+                  </div>
+                ) : (
+                  /* ── SVG parts-based avatar (fallback) ── */
+                  <AvatarFigure style={v.avatarStyle} size={avatarSize} animate="idle" />
+                )}
               </div>
 
               {/* Name tag — unflipped */}

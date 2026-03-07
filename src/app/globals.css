@@ -225,6 +225,24 @@
   animation: avatar-head-tilt 5s ease-in-out infinite;
 }
 
+/* ── Avatar float animation (gentle up-down bob) ── */
+@keyframes avatar-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.animate-avatar-float {
+  animation: avatar-float 3s ease-in-out infinite;
+}
+
+/* ── Avatar shadow pulse (synced with float) ── */
+@keyframes avatar-shadow {
+  0%, 100% { transform: scaleX(1) scaleY(1); opacity: 0.12; }
+  50% { transform: scaleX(0.85) scaleY(0.85); opacity: 0.08; }
+}
+.animate-avatar-shadow {
+  animation: avatar-shadow 3s ease-in-out infinite;
+}
+
 /* ── Plaza ambient float particles ── */
 @keyframes plaza-float {
   0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }

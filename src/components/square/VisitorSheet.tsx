@@ -55,7 +55,16 @@ export default function VisitorSheet({
                 className="rounded-2xl p-2"
                 style={{ background: "var(--gradient-soft)" }}
               >
-                <AvatarFigure style={visitor.avatarStyle} size={72} />
+                {visitor.avatarImage ? (
+                  <img
+                    src={visitor.avatarImage}
+                    alt={visitor.displayName}
+                    style={{ width: 72, height: 72, objectFit: "contain" }}
+                    draggable={false}
+                  />
+                ) : (
+                  <AvatarFigure style={visitor.avatarStyle} size={72} />
+                )}
               </div>
             </div>
 

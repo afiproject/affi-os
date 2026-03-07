@@ -65,6 +65,9 @@ export default function AvatarFigure({
 
   const animClass = animate === "walk" ? "animate-avatar-walk" : animate === "idle" ? "animate-avatar-idle" : "";
 
+  // Unique ID prefix for SVG gradient defs (avoids clashes when multiple avatars on page)
+  const uid = `av${Math.random().toString(36).slice(2, 8)}`;
+
   return (
     <svg
       width={size}
@@ -73,8 +76,41 @@ export default function AvatarFigure({
       className={`${animClass} ${className ?? ""}`}
       style={{ overflow: "visible" }}
     >
-      {/* ══════ Ground shadow ══════ */}
-      <ellipse cx={50} cy={a.shadowY} rx={a.shoulderHW * 0.75} ry={3} fill="rgba(0,0,0,0.08)" />
+      {/* ══════ SVG Defs — gradients for 2.5D effect ══════ */}
+      <defs>
+        {/* Iris radial gradient for CHARAT-style anime eyes */}
+        <radialGradient id={`${uid}-iris`} cx="50%" cy="40%" r="55%">
+          <stop offset="0%" stopColor={lt(eyeColor, 30)} />
+          <stop offset="50%" stopColor={eyeColor} />
+          <stop offset="100%" stopColor={dk(eyeColor, 25)} />
+        </radialGradient>
+        {/* Head skin gradient for 2.5D depth */}
+        <radialGradient id={`${uid}-skin`} cx="45%" cy="35%" r="60%">
+          <stop offset="0%" stopColor={lt(skin, 5)} />
+          <stop offset="100%" stopColor={skin} />
+        </radialGradient>
+        {/* Hair sheen gradient */}
+        <linearGradient id={`${uid}-hairSheen`} x1="30%" y1="0%" x2="70%" y2="100%">
+          <stop offset="0%" stopColor={hairH} stopOpacity="0.5" />
+          <stop offset="50%" stopColor={hairColor} stopOpacity="0" />
+          <stop offset="100%" stopColor={hairD} stopOpacity="0.3" />
+        </linearGradient>
+        {/* Pedestal gradient */}
+        <radialGradient id={`${uid}-pedestal`} cx="50%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#E8EDF5" />
+          <stop offset="100%" stopColor="#C8D0E0" />
+        </radialGradient>
+        {/* Body shading */}
+        <linearGradient id={`${uid}-bodyShade`} x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="white" stopOpacity="0.08" />
+          <stop offset="100%" stopColor="black" stopOpacity="0.06" />
+        </linearGradient>
+      </defs>
+
+      {/* ══════ Pedestal — CHARAT-style platform ══════ */}
+      <ellipse cx={50} cy={a.shadowY + 2} rx={a.shoulderHW * 1.1} ry={5} fill={`url(#${uid}-pedestal)`} stroke="#B0B8CC" strokeWidth="0.8" />
+      {/* Soft ground shadow */}
+      <ellipse cx={50} cy={a.shadowY} rx={a.shoulderHW * 0.8} ry={3} fill="rgba(0,0,0,0.10)" />
 
       {/* ══════ BODY GROUP ══════ */}
       <g data-part="body">
@@ -85,6 +121,8 @@ export default function AvatarFigure({
         </g>
         <g data-part="torso">
           {renderTop(topType, topColor, topD, skin, skinD, a)}
+          {/* 2.5D body overlay */}
+          <rect x={a.headCx - a.shoulderHW} y={a.bodyTop} width={a.shoulderHW * 2} height={a.bodyBottom - a.bodyTop} rx={4} fill={`url(#${uid}-bodyShade)`} />
         </g>
         <g data-part="arms">
           {renderArms(skin, topColor, a)}
@@ -98,10 +136,14 @@ export default function AvatarFigure({
       <g data-part="head">
         {renderHairBack(hairStyle, hairColor, hairD, a)}
 
-        <ellipse cx={a.headCx} cy={a.headCy} rx={a.headRx} ry={a.headRy} fill={skin} />
-        <ellipse cx={a.headCx} cy={a.headCy + a.headRy * 0.7} rx={a.headRx * 0.6} ry={4} fill={skinD} opacity={0.3} />
+        {/* Head with 2.5D skin gradient */}
+        <ellipse cx={a.headCx} cy={a.headCy} rx={a.headRx} ry={a.headRy} fill={`url(#${uid}-skin)`} />
+        {/* Chin shadow for depth */}
+        <ellipse cx={a.headCx} cy={a.headCy + a.headRy * 0.7} rx={a.headRx * 0.6} ry={4} fill={skinD} opacity={0.25} />
+        {/* Subtle cheek highlight for 2.5D */}
+        <ellipse cx={a.headCx - 5} cy={a.headCy - 2} rx={6} ry={4} fill="white" opacity={0.06} />
 
-        {/* Ears */}
+        {/* Ears with inner shadow */}
         <ellipse cx={a.headCx - a.headRx + 2} cy={a.headCy + 2} rx={4} ry={5} fill={skin} />
         <ellipse cx={a.headCx + a.headRx - 2} cy={a.headCy + 2} rx={4} ry={5} fill={skin} />
         <ellipse cx={a.headCx - a.headRx + 2} cy={a.headCy + 2} rx={2.5} ry={3} fill={skinD} opacity={0.2} />
@@ -112,13 +154,15 @@ export default function AvatarFigure({
 
         <g data-part="face">
           {renderBrows(browType, a)}
-          {renderEyes(eyeType, eyeColor, a)}
+          {renderEyes(eyeType, eyeColor, a, uid)}
           {renderNose(noseType, a, skin)}
           {renderMouth(mouthType, a)}
           {renderCheeks(cheekType, cheekColor, a)}
         </g>
 
         {renderHairFront(hairStyle, hairColor, hairD, hairH, a)}
+        {/* Hair sheen overlay for 2.5D */}
+        {renderHairCap(`url(#${uid}-hairSheen)` as string, a)}
         {renderAccessory(accessory, a)}
       </g>
     </svg>
@@ -129,112 +173,117 @@ export default function AvatarFigure({
    FACE PARTS — anchored to computed positions
    ══════════════════════════════════════════════════════ */
 
-function renderEyes(type: number, color: string, a: Anchors) {
+function renderEyes(type: number, color: string, a: Anchors, uid = "") {
   const ey = a.eyeLine;
   const lx = a.headCx - a.eyeSpacing;
   const rx = a.headCx + a.eyeSpacing;
+  const irisGrad = uid ? `url(#${uid}-iris)` : color;
+
+  /** CHARAT-style anime eye with iris gradient, pupil, eyelashes, multiple highlights */
+  const charatEye = (cx: number, isLeft: boolean, sclW = 6, sclH = 7, irisR = 4.5) => {
+    const dir = isLeft ? 1 : -1;
+    return (<>
+      {/* Sclera (white) with subtle shadow */}
+      <ellipse cx={cx} cy={ey} rx={sclW} ry={sclH} fill="white" />
+      <ellipse cx={cx} cy={ey - sclH + 1} rx={sclW - 0.5} ry={1.5} fill="rgba(0,0,0,0.04)" />
+      {/* Iris with gradient */}
+      <ellipse cx={cx + dir * 0.3} cy={ey + 0.5} rx={irisR} ry={irisR + 0.5} fill={irisGrad} />
+      {/* Pupil */}
+      <ellipse cx={cx + dir * 0.3} cy={ey + 1} rx={irisR * 0.45} ry={irisR * 0.5} fill="#1A1A2E" />
+      {/* Main highlight */}
+      <ellipse cx={cx + dir * 1.8} cy={ey - 1.5} rx={1.8} ry={2} fill="white" opacity="0.95" />
+      {/* Secondary highlight */}
+      <circle cx={cx - dir * 1.2} cy={ey + 2} r={0.9} fill="white" opacity="0.7" />
+      {/* Upper eyelash line */}
+      <path d={`M${cx - sclW},${ey - sclH * 0.5} Q${cx},${ey - sclH - 1} ${cx + sclW},${ey - sclH * 0.5}`} fill="none" stroke="#2A2A3A" strokeWidth="1.8" strokeLinecap="round" />
+      {/* Eyelash tips */}
+      <path d={`M${cx + (isLeft ? -sclW : sclW)},${ey - sclH * 0.5} L${cx + (isLeft ? -sclW - 1.5 : sclW + 1.5)},${ey - sclH * 0.6}`} stroke="#2A2A3A" strokeWidth="1" strokeLinecap="round" />
+      {/* Lower lash line (subtle) */}
+      <path d={`M${cx - sclW + 1},${ey + sclH * 0.6} Q${cx},${ey + sclH * 0.7} ${cx + sclW - 1},${ey + sclH * 0.6}`} fill="none" stroke="#5A5A6A" strokeWidth="0.5" opacity="0.4" />
+    </>);
+  };
 
   switch (type) {
-    case 0: // まる
+    case 0: // まる — round CHARAT-style
+      return (<>{charatEye(lx, true)}{charatEye(rx, false)}</>);
+    case 1: // たれ目 — droopy CHARAT-style
       return (<>
-        <ellipse cx={lx} cy={ey} rx={5} ry={5.5} fill="white" />
-        <ellipse cx={rx} cy={ey} rx={5} ry={5.5} fill="white" />
-        <ellipse cx={lx + 0.5} cy={ey + 0.5} rx={3.5} ry={4} fill={color} />
-        <ellipse cx={rx - 0.5} cy={ey + 0.5} rx={3.5} ry={4} fill={color} />
-        <circle cx={lx + 1.5} cy={ey - 1} r={1.3} fill="white" />
-        <circle cx={rx - 1.5} cy={ey - 1} r={1.3} fill="white" />
+        {charatEye(lx, true, 6, 6.5, 4)}
+        {charatEye(rx, false, 6, 6.5, 4)}
+        {/* Droopy upper lash override */}
+        <path d={`M${lx - 6},${ey - 5} Q${lx},${ey - 7.5} ${lx + 6},${ey - 4}`} fill="none" stroke="#2A2A3A" strokeWidth="1.8" strokeLinecap="round" />
+        <path d={`M${rx - 6},${ey - 4} Q${rx},${ey - 7.5} ${rx + 6},${ey - 5}`} fill="none" stroke="#2A2A3A" strokeWidth="1.8" strokeLinecap="round" />
       </>);
-    case 1: // たれ目
+    case 2: // つり目 — sharp CHARAT-style
       return (<>
-        <ellipse cx={lx} cy={ey} rx={5} ry={5} fill="white" />
-        <ellipse cx={rx} cy={ey} rx={5} ry={5} fill="white" />
-        <ellipse cx={lx + 0.5} cy={ey + 0.8} rx={3.2} ry={3.5} fill={color} />
-        <ellipse cx={rx - 0.5} cy={ey + 0.8} rx={3.2} ry={3.5} fill={color} />
-        <circle cx={lx + 1.5} cy={ey - 0.5} r={1.2} fill="white" />
-        <circle cx={rx - 1.5} cy={ey - 0.5} r={1.2} fill="white" />
-        <path d={`M${lx - 5},${ey - 4} Q${lx},${ey - 6} ${lx + 5},${ey - 3}`} fill="none" stroke="#3A3A4A" strokeWidth="1" />
-        <path d={`M${rx - 5},${ey - 3} Q${rx},${ey - 6} ${rx + 5},${ey - 4}`} fill="none" stroke="#3A3A4A" strokeWidth="1" />
+        {charatEye(lx, true, 6.5, 5.5, 3.8)}
+        {charatEye(rx, false, 6.5, 5.5, 3.8)}
+        {/* Sharp upper lash override */}
+        <path d={`M${lx - 6.5},${ey - 1.5} Q${lx},${ey - 7} ${lx + 7},${ey - 5}`} fill="none" stroke="#2A2A3A" strokeWidth="2" strokeLinecap="round" />
+        <path d={`M${rx - 7},${ey - 5} Q${rx},${ey - 7} ${rx + 6.5},${ey - 1.5}`} fill="none" stroke="#2A2A3A" strokeWidth="2" strokeLinecap="round" />
       </>);
-    case 2: // つり目
+    case 3: // 細め — narrow
       return (<>
-        <ellipse cx={lx} cy={ey} rx={5.5} ry={4.5} fill="white" />
-        <ellipse cx={rx} cy={ey} rx={5.5} ry={4.5} fill="white" />
-        <ellipse cx={lx + 0.5} cy={ey + 0.3} rx={3} ry={3.5} fill={color} />
-        <ellipse cx={rx - 0.5} cy={ey + 0.3} rx={3} ry={3.5} fill={color} />
-        <circle cx={lx + 1.5} cy={ey - 1} r={1.2} fill="white" />
-        <circle cx={rx - 1.5} cy={ey - 1} r={1.2} fill="white" />
-        <path d={`M${lx - 5.5},${ey - 2} Q${lx},${ey - 6} ${lx + 6},${ey - 4}`} fill="none" stroke="#3A3A4A" strokeWidth="1.2" />
-        <path d={`M${rx - 6},${ey - 4} Q${rx},${ey - 6} ${rx + 5.5},${ey - 2}`} fill="none" stroke="#3A3A4A" strokeWidth="1.2" />
+        {charatEye(lx, true, 6, 4, 3)}
+        {charatEye(rx, false, 6, 4, 3)}
       </>);
-    case 3: // 細め
+    case 4: // キラキラ — sparkle CHARAT-style (extra large)
       return (<>
-        <ellipse cx={lx} cy={ey} rx={5.5} ry={3} fill="white" />
-        <ellipse cx={rx} cy={ey} rx={5.5} ry={3} fill="white" />
-        <ellipse cx={lx} cy={ey + 0.3} rx={2.8} ry={2.5} fill={color} />
-        <ellipse cx={rx} cy={ey + 0.3} rx={2.8} ry={2.5} fill={color} />
-        <circle cx={lx + 1} cy={ey - 0.5} r={1} fill="white" />
-        <circle cx={rx - 1} cy={ey - 0.5} r={1} fill="white" />
+        {charatEye(lx, true, 7, 8, 5.5)}
+        {charatEye(rx, false, 7, 8, 5.5)}
+        {/* Extra sparkle highlights */}
+        <circle cx={lx - 2} cy={ey + 3} r={0.6} fill="white" opacity="0.8" />
+        <circle cx={rx + 2} cy={ey + 3} r={0.6} fill="white" opacity="0.8" />
+        <circle cx={lx + 3} cy={ey - 3} r={0.5} fill="white" opacity="0.6" />
+        <circle cx={rx - 3} cy={ey - 3} r={0.5} fill="white" opacity="0.6" />
       </>);
-    case 4: // キラキラ
+    case 5: // ジト目 — half-lidded
       return (<>
-        <ellipse cx={lx} cy={ey} rx={6} ry={6.5} fill="white" />
-        <ellipse cx={rx} cy={ey} rx={6} ry={6.5} fill="white" />
-        <ellipse cx={lx + 0.5} cy={ey + 0.5} rx={4} ry={4.5} fill={color} />
-        <ellipse cx={rx - 0.5} cy={ey + 0.5} rx={4} ry={4.5} fill={color} />
-        <circle cx={lx + 2} cy={ey - 1.5} r={2} fill="white" />
-        <circle cx={rx - 2} cy={ey - 1.5} r={2} fill="white" />
-        <circle cx={lx - 1} cy={ey + 2} r={0.8} fill="white" />
-        <circle cx={rx + 1} cy={ey + 2} r={0.8} fill="white" />
+        <path d={`M${lx - 5},${ey} Q${lx},${ey - 2.5} ${lx + 5},${ey}`} fill="none" stroke="#2A2A3A" strokeWidth="2.2" strokeLinecap="round" />
+        <path d={`M${rx - 5},${ey} Q${rx},${ey - 2.5} ${rx + 5},${ey}`} fill="none" stroke="#2A2A3A" strokeWidth="2.2" strokeLinecap="round" />
+        <ellipse cx={lx} cy={ey + 0.8} rx={3} ry={2} fill={irisGrad} />
+        <ellipse cx={rx} cy={ey + 0.8} rx={3} ry={2} fill={irisGrad} />
+        <circle cx={lx} cy={ey + 1} r={1.2} fill="#1A1A2E" />
+        <circle cx={rx} cy={ey + 1} r={1.2} fill="#1A1A2E" />
+        <circle cx={lx + 1} cy={ey + 0.3} r={0.6} fill="white" />
+        <circle cx={rx - 1} cy={ey + 0.3} r={0.6} fill="white" />
       </>);
-    case 5: // ジト目
+    case 6: // 半目 — sleepy
       return (<>
-        <path d={`M${lx - 5},${ey} Q${lx},${ey - 2} ${lx + 5},${ey}`} fill="none" stroke="#3A3A4A" strokeWidth="2" strokeLinecap="round" />
-        <path d={`M${rx - 5},${ey} Q${rx},${ey - 2} ${rx + 5},${ey}`} fill="none" stroke="#3A3A4A" strokeWidth="2" strokeLinecap="round" />
-        <circle cx={lx} cy={ey + 0.5} r={2} fill={color} />
-        <circle cx={rx} cy={ey + 0.5} r={2} fill={color} />
+        <ellipse cx={lx} cy={ey + 1} rx={5} ry={3.5} fill="white" />
+        <ellipse cx={rx} cy={ey + 1} rx={5} ry={3.5} fill="white" />
+        <ellipse cx={lx} cy={ey + 1.5} rx={3.5} ry={2.8} fill={irisGrad} />
+        <ellipse cx={rx} cy={ey + 1.5} rx={3.5} ry={2.8} fill={irisGrad} />
+        <ellipse cx={lx} cy={ey + 1.8} rx={1.5} ry={1.3} fill="#1A1A2E" />
+        <ellipse cx={rx} cy={ey + 1.8} rx={1.5} ry={1.3} fill="#1A1A2E" />
+        <path d={`M${lx - 5},${ey - 1} Q${lx},${ey - 2.5} ${lx + 5},${ey}`} fill="none" stroke="#2A2A3A" strokeWidth="1.8" />
+        <path d={`M${rx - 5},${ey} Q${rx},${ey - 2.5} ${rx + 5},${ey - 1}`} fill="none" stroke="#2A2A3A" strokeWidth="1.8" />
+        <circle cx={lx + 1} cy={ey + 0.3} r={0.7} fill="white" />
+        <circle cx={rx - 1} cy={ey + 0.3} r={0.7} fill="white" />
       </>);
-    case 6: // 半目
+    case 7: // にっこり — happy closed
       return (<>
-        <ellipse cx={lx} cy={ey + 1} rx={4.5} ry={3} fill="white" />
-        <ellipse cx={rx} cy={ey + 1} rx={4.5} ry={3} fill="white" />
-        <ellipse cx={lx} cy={ey + 1.5} rx={3} ry={2.5} fill={color} />
-        <ellipse cx={rx} cy={ey + 1.5} rx={3} ry={2.5} fill={color} />
-        <path d={`M${lx - 5},${ey - 1} Q${lx},${ey - 2} ${lx + 5},${ey}`} fill="none" stroke="#3A3A4A" strokeWidth="1.5" />
-        <path d={`M${rx - 5},${ey} Q${rx},${ey - 2} ${rx + 5},${ey - 1}`} fill="none" stroke="#3A3A4A" strokeWidth="1.5" />
-        <circle cx={lx + 1} cy={ey} r={0.8} fill="white" />
-        <circle cx={rx - 1} cy={ey} r={0.8} fill="white" />
+        <path d={`M${lx - 5},${ey + 1} Q${lx},${ey - 4} ${lx + 5},${ey + 1}`} fill="none" stroke="#2A2A3A" strokeWidth="2.2" strokeLinecap="round" />
+        <path d={`M${rx - 5},${ey + 1} Q${rx},${ey - 4} ${rx + 5},${ey + 1}`} fill="none" stroke="#2A2A3A" strokeWidth="2.2" strokeLinecap="round" />
+        {/* Eyelash accent */}
+        <path d={`M${lx - 5},${ey + 1} L${lx - 6.5},${ey - 0.5}`} stroke="#2A2A3A" strokeWidth="1" strokeLinecap="round" />
+        <path d={`M${rx + 5},${ey + 1} L${rx + 6.5},${ey - 0.5}`} stroke="#2A2A3A" strokeWidth="1" strokeLinecap="round" />
       </>);
-    case 7: // にっこり
+    case 8: // 爽やか — bright open CHARAT-style
       return (<>
-        <path d={`M${lx - 4},${ey + 1} Q${lx},${ey - 3} ${lx + 4},${ey + 1}`} fill="none" stroke="#3A3A4A" strokeWidth="2" strokeLinecap="round" />
-        <path d={`M${rx - 4},${ey + 1} Q${rx},${ey - 3} ${rx + 4},${ey + 1}`} fill="none" stroke="#3A3A4A" strokeWidth="2" strokeLinecap="round" />
+        {charatEye(lx, true, 6.5, 7.5, 4.8)}
+        {charatEye(rx, false, 6.5, 7.5, 4.8)}
       </>);
-    case 8: // 爽やか — bright open eyes, slightly wider
+    case 9: // ゆるい — relaxed droopy
       return (<>
-        <ellipse cx={lx} cy={ey} rx={5.5} ry={6} fill="white" />
-        <ellipse cx={rx} cy={ey} rx={5.5} ry={6} fill="white" />
-        <ellipse cx={lx + 0.3} cy={ey + 0.3} rx={3.2} ry={3.8} fill={color} />
-        <ellipse cx={rx - 0.3} cy={ey + 0.3} rx={3.2} ry={3.8} fill={color} />
-        <circle cx={lx + 1.5} cy={ey - 1.5} r={1.5} fill="white" />
-        <circle cx={rx - 1.5} cy={ey - 1.5} r={1.5} fill="white" />
-        <circle cx={lx - 0.5} cy={ey + 1.5} r={0.6} fill="white" />
-        <circle cx={rx + 0.5} cy={ey + 1.5} r={0.6} fill="white" />
-        <path d={`M${lx - 5},${ey - 5} Q${lx},${ey - 7} ${lx + 5.5},${ey - 5}`} fill="none" stroke="#3A3A4A" strokeWidth="0.8" />
-        <path d={`M${rx - 5.5},${ey - 5} Q${rx},${ey - 7} ${rx + 5},${ey - 5}`} fill="none" stroke="#3A3A4A" strokeWidth="0.8" />
-      </>);
-    case 9: // ゆるい — relaxed droopy, soft
-      return (<>
-        <ellipse cx={lx} cy={ey + 1} rx={5} ry={4.5} fill="white" />
-        <ellipse cx={rx} cy={ey + 1} rx={5} ry={4.5} fill="white" />
-        <ellipse cx={lx + 0.5} cy={ey + 1.5} rx={3} ry={3.2} fill={color} />
-        <ellipse cx={rx - 0.5} cy={ey + 1.5} rx={3} ry={3.2} fill={color} />
-        <circle cx={lx + 1} cy={ey + 0.5} r={1} fill="white" />
-        <circle cx={rx - 1} cy={ey + 0.5} r={1} fill="white" />
-        <path d={`M${lx - 5},${ey - 2.5} Q${lx},${ey - 4} ${lx + 5},${ey - 1.5}`} fill="none" stroke="#5A5A6A" strokeWidth="1" strokeLinecap="round" />
-        <path d={`M${rx - 5},${ey - 1.5} Q${rx},${ey - 4} ${rx + 5},${ey - 2.5}`} fill="none" stroke="#5A5A6A" strokeWidth="1" strokeLinecap="round" />
+        {charatEye(lx, true, 5.5, 5.5, 3.5)}
+        {charatEye(rx, false, 5.5, 5.5, 3.5)}
+        {/* Relaxed upper lid override */}
+        <path d={`M${lx - 5.5},${ey - 3} Q${lx},${ey - 5} ${lx + 5.5},${ey - 2}`} fill="none" stroke="#4A4A5A" strokeWidth="1.3" strokeLinecap="round" />
+        <path d={`M${rx - 5.5},${ey - 2} Q${rx},${ey - 5} ${rx + 5.5},${ey - 3}`} fill="none" stroke="#4A4A5A" strokeWidth="1.3" strokeLinecap="round" />
       </>);
     default:
-      return renderEyes(0, color, a);
+      return renderEyes(0, color, a, uid);
   }
 }
 
