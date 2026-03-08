@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
+import { isDemoMode } from "@/lib/supabase/admin";
 import { createPostingAdapter } from "@/lib/adapters/posting";
+import {
+  getDuePosts,
+  updateScheduledPostStatus,
+  createPostedLog,
+  startWorkflow,
+  completeWorkflow,
+  logError,
+} from "@/lib/db";
+
+const MAX_RETRIES = 3;
 
 // GET /api/cron/post — 投稿実行ジョブ
 // Vercel Cron: 15分ごとに実行
@@ -9,38 +20,98 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    const now = new Date();
-    const adapter = createPostingAdapter();
+  const now = new Date();
 
-    // TODO: DBから「現在時刻を過ぎた scheduled ステータスの投稿」を取得
-    // const duePostS = await db.scheduledPosts.findMany({
-    //   where: { status: "scheduled", scheduled_at: { lte: now } }
-    // });
+  if (isDemoMode()) {
+    return NextResponse.json({
+      success: true,
+      workflow: "post",
+      posted: 0,
+      failed: 0,
+      checked_at: now.toISOString(),
+    });
+  }
+
+  const workflowId = await startWorkflow("post");
+
+  try {
+    // 「現在時刻を過ぎた scheduled ステータスの投稿」を取得
+    const duePosts = await getDuePosts();
 
     let postedCount = 0;
     let failedCount = 0;
 
-    // デモモードでは何もしない
-    // for (const post of duePosts) {
-    //   const result = await adapter.post(post.variant.body_text);
-    //   if (result.success) {
-    //     postedCount++;
-    //     // ステータス更新、ログ記録
-    //   } else {
-    //     failedCount++;
-    //     // retry_count++、エラー記録
-    //   }
-    // }
+    // 投稿先はXアカウント
+    const adapter = createPostingAdapter("x");
+
+    for (const post of duePosts) {
+      if (!post.variant?.body_text) {
+        failedCount++;
+        continue;
+      }
+
+      // 投稿文にアフィリエイトURLを追加
+      const bodyText = post.variant.body_text;
+      const hashtags = post.variant.hashtags?.length
+        ? "\n" + post.variant.hashtags.join(" ")
+        : "";
+      const affiliateUrl = post.candidate?.item?.affiliate_url || "";
+      const fullText = `${bodyText}${hashtags}${affiliateUrl ? "\n" + affiliateUrl : ""}`;
+
+      const result = await adapter.post(fullText);
+
+      if (result.success && result.external_post_id) {
+        postedCount++;
+
+        // スケジュール投稿ステータスを更新
+        await updateScheduledPostStatus(post.id, {
+          status: "posted",
+          posted_at: result.posted_at,
+          external_post_id: result.external_post_id,
+        });
+
+        // 投稿ログを記録
+        await createPostedLog({
+          scheduled_post_id: post.id,
+          external_post_id: result.external_post_id,
+          posted_at: result.posted_at,
+          body_text: fullText,
+          affiliate_url: affiliateUrl,
+          category: post.candidate?.item?.category || "",
+          tags: post.candidate?.item?.tags || [],
+          tone: post.variant.tone || "",
+          account_id: post.account_id,
+        });
+      } else {
+        failedCount++;
+        const newRetryCount = (post.retry_count || 0) + 1;
+
+        await updateScheduledPostStatus(post.id, {
+          status: newRetryCount >= MAX_RETRIES ? "failed" : "scheduled",
+          error_message: result.error_message,
+          retry_count: newRetryCount,
+        });
+
+        await logError("cron/post", `Post failed: ${result.error_message}`, undefined, {
+          scheduled_post_id: post.id,
+          retry_count: newRetryCount,
+        });
+      }
+    }
+
+    await completeWorkflow(workflowId, postedCount);
 
     return NextResponse.json({
       success: true,
       workflow: "post",
+      due_count: duePosts.length,
       posted: postedCount,
       failed: failedCount,
       checked_at: now.toISOString(),
     });
   } catch (error) {
+    await completeWorkflow(workflowId, 0, String(error));
+    await logError("cron/post", String(error));
     return NextResponse.json(
       { error: "Post execution failed", details: String(error) },
       { status: 500 }
