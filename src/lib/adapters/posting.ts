@@ -3,6 +3,8 @@
 // 投稿先プラットフォームの抽象インターフェース
 // ========================================
 
+import { postTweet, deleteTweet, isXApiConfigured } from "@/lib/x-api";
+
 export interface PostResult {
   success: boolean;
   external_post_id?: string;
@@ -26,8 +28,8 @@ export class DemoPostingAdapter implements PostingAdapter {
   readonly platform = "demo";
 
   async post(text: string): Promise<PostResult> {
-    // デモモードではモック投稿
     await new Promise((r) => setTimeout(r, 500));
+    console.log("[DEMO] Would post:", text.slice(0, 80));
     return {
       success: true,
       external_post_id: `demo-${Date.now()}`,
@@ -45,25 +47,31 @@ export class XPostingAdapter implements PostingAdapter {
   readonly platform = "x";
 
   async post(text: string): Promise<PostResult> {
-    const apiKey = process.env.X_API_KEY;
-    if (!apiKey) {
+    if (!isXApiConfigured()) {
       console.warn("X API key not configured, using demo mode");
       return new DemoPostingAdapter().post(text);
     }
 
-    // TODO: X API v2 implementation
-    // POST https://api.twitter.com/2/tweets
+    const result = await postTweet(text);
+
+    if (result.success) {
+      return {
+        success: true,
+        external_post_id: result.tweet_id,
+        posted_at: new Date().toISOString(),
+      };
+    }
+
     return {
       success: false,
-      error_message: "X API integration not yet implemented",
+      error_message: result.error,
       posted_at: new Date().toISOString(),
     };
   }
 
   async deletePost(externalId: string): Promise<boolean> {
-    // TODO: implement
-    console.log("Delete post:", externalId);
-    return false;
+    if (!isXApiConfigured()) return true;
+    return deleteTweet(externalId);
   }
 }
 
