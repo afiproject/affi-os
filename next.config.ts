@@ -6,6 +6,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "2mb",
     },
   },
+  // Vercel deployment optimization
+  poweredByHeader: false,
 };
 
 export default nextConfig;
