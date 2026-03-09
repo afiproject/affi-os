@@ -42,12 +42,47 @@ export function CandidateDetail({ candidate: initial }: Props) {
 
   const selectedVariant = candidate.variants.find((v) => v.id === selectedVariantId);
 
-  function handleApprove() {
+  async function handleApprove() {
     setCandidate((c) => ({ ...c, status: "approved" }));
+    try {
+      await fetch("/api/candidates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: candidate.id, action: "approved" }),
+      });
+      const variant = selectedVariant || candidate.variants[0];
+      if (variant) {
+        await fetch("/api/schedule", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            candidate_id: candidate.id,
+            account_id: candidate.account_id,
+            variant_id: variant.id,
+            scheduled_at: candidate.recommended_time
+              ? new Date(
+                  new Date().toDateString() + " " + candidate.recommended_time
+                ).toISOString()
+              : new Date(Date.now() + 3600000).toISOString(),
+          }),
+        });
+      }
+    } catch (error) {
+      console.error("Approve failed:", error);
+    }
   }
 
-  function handleReject() {
+  async function handleReject() {
     setCandidate((c) => ({ ...c, status: "rejected" }));
+    try {
+      await fetch("/api/candidates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: candidate.id, action: "rejected" }),
+      });
+    } catch (error) {
+      console.error("Reject failed:", error);
+    }
   }
 
   const scoreItems = [
