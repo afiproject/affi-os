@@ -44,6 +44,12 @@ export class ClaudeProvider implements AIProvider {
     });
 
     const data = await res.json();
+
+    if (!res.ok || data.error) {
+      console.error("[ClaudeProvider] API error:", JSON.stringify(data));
+      return this.mockGenerate(prompt);
+    }
+
     return {
       text: data.content?.[0]?.text || "",
       input_tokens: data.usage?.input_tokens || 0,
