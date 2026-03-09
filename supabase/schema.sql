@@ -3,7 +3,7 @@
 -- ========================================
 
 -- ---------- Users ----------
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL DEFAULT '',
@@ -12,7 +12,7 @@ CREATE TABLE users (
 );
 
 -- ---------- Accounts (X等のSNSアカウント) ----------
-CREATE TABLE accounts (
+CREATE TABLE IF NOT EXISTS accounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   platform TEXT NOT NULL DEFAULT 'x',        -- x, other
@@ -22,10 +22,10 @@ CREATE TABLE accounts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_accounts_user ON accounts(user_id);
+CREATE INDEX IF NOT EXISTS idx_accounts_user ON accounts(user_id);
 
 -- ---------- Affiliate Sources (ASP/素材元) ----------
-CREATE TABLE affiliate_sources (
+CREATE TABLE IF NOT EXISTS affiliate_sources (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   type TEXT NOT NULL,                        -- ASP名
@@ -35,7 +35,7 @@ CREATE TABLE affiliate_sources (
 );
 
 -- ---------- Affiliate Items (収集した素材) ----------
-CREATE TABLE affiliate_items (
+CREATE TABLE IF NOT EXISTS affiliate_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   source_id UUID NOT NULL REFERENCES affiliate_sources(id) ON DELETE CASCADE,
   external_id TEXT NOT NULL,
@@ -53,12 +53,12 @@ CREATE TABLE affiliate_items (
   exclusion_reason TEXT,
   UNIQUE(source_id, external_id)
 );
-CREATE INDEX idx_items_source ON affiliate_items(source_id);
-CREATE INDEX idx_items_category ON affiliate_items(category);
-CREATE INDEX idx_items_collected ON affiliate_items(collected_at DESC);
+CREATE INDEX IF NOT EXISTS idx_items_source ON affiliate_items(source_id);
+CREATE INDEX IF NOT EXISTS idx_items_category ON affiliate_items(category);
+CREATE INDEX IF NOT EXISTS idx_items_collected ON affiliate_items(collected_at DESC);
 
 -- ---------- Candidate Posts (投稿候補) ----------
-CREATE TABLE candidate_posts (
+CREATE TABLE IF NOT EXISTS candidate_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   item_id UUID NOT NULL REFERENCES affiliate_items(id) ON DELETE CASCADE,
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -80,13 +80,13 @@ CREATE TABLE candidate_posts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_candidates_account ON candidate_posts(account_id);
-CREATE INDEX idx_candidates_status ON candidate_posts(status);
-CREATE INDEX idx_candidates_score ON candidate_posts(total_score DESC);
-CREATE INDEX idx_candidates_date ON candidate_posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_candidates_account ON candidate_posts(account_id);
+CREATE INDEX IF NOT EXISTS idx_candidates_status ON candidate_posts(status);
+CREATE INDEX IF NOT EXISTS idx_candidates_score ON candidate_posts(total_score DESC);
+CREATE INDEX IF NOT EXISTS idx_candidates_date ON candidate_posts(created_at DESC);
 
 -- ---------- Candidate Post Variants (文面バリエーション) ----------
-CREATE TABLE candidate_post_variants (
+CREATE TABLE IF NOT EXISTS candidate_post_variants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   candidate_id UUID NOT NULL REFERENCES candidate_posts(id) ON DELETE CASCADE,
   variant_label TEXT NOT NULL DEFAULT 'A',   -- A, B, C
@@ -97,10 +97,10 @@ CREATE TABLE candidate_post_variants (
   is_selected BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_variants_candidate ON candidate_post_variants(candidate_id);
+CREATE INDEX IF NOT EXISTS idx_variants_candidate ON candidate_post_variants(candidate_id);
 
 -- ---------- Scheduled Posts (予約済み投稿) ----------
-CREATE TABLE scheduled_posts (
+CREATE TABLE IF NOT EXISTS scheduled_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   candidate_id UUID NOT NULL REFERENCES candidate_posts(id) ON DELETE CASCADE,
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -114,12 +114,12 @@ CREATE TABLE scheduled_posts (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_scheduled_account ON scheduled_posts(account_id);
-CREATE INDEX idx_scheduled_status ON scheduled_posts(status);
-CREATE INDEX idx_scheduled_time ON scheduled_posts(scheduled_at);
+CREATE INDEX IF NOT EXISTS idx_scheduled_account ON scheduled_posts(account_id);
+CREATE INDEX IF NOT EXISTS idx_scheduled_status ON scheduled_posts(status);
+CREATE INDEX IF NOT EXISTS idx_scheduled_time ON scheduled_posts(scheduled_at);
 
 -- ---------- Posted Logs (投稿結果ログ) ----------
-CREATE TABLE posted_logs (
+CREATE TABLE IF NOT EXISTS posted_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   scheduled_post_id UUID NOT NULL REFERENCES scheduled_posts(id),
   external_post_id TEXT NOT NULL,
@@ -131,11 +131,11 @@ CREATE TABLE posted_logs (
   tone TEXT NOT NULL DEFAULT '',
   account_id UUID NOT NULL REFERENCES accounts(id)
 );
-CREATE INDEX idx_posted_account ON posted_logs(account_id);
-CREATE INDEX idx_posted_date ON posted_logs(posted_at DESC);
+CREATE INDEX IF NOT EXISTS idx_posted_account ON posted_logs(account_id);
+CREATE INDEX IF NOT EXISTS idx_posted_date ON posted_logs(posted_at DESC);
 
 -- ---------- Performance Metrics (成績) ----------
-CREATE TABLE performance_metrics (
+CREATE TABLE IF NOT EXISTS performance_metrics (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   posted_log_id UUID NOT NULL REFERENCES posted_logs(id),
   date DATE NOT NULL,
@@ -150,11 +150,11 @@ CREATE TABLE performance_metrics (
   revenue NUMERIC(10,0) NOT NULL DEFAULT 0,
   collected_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_perf_posted ON performance_metrics(posted_log_id);
-CREATE INDEX idx_perf_date ON performance_metrics(date DESC);
+CREATE INDEX IF NOT EXISTS idx_perf_posted ON performance_metrics(posted_log_id);
+CREATE INDEX IF NOT EXISTS idx_perf_date ON performance_metrics(date DESC);
 
 -- ---------- System Settings ----------
-CREATE TABLE system_settings (
+CREATE TABLE IF NOT EXISTS system_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   daily_post_limit INTEGER NOT NULL DEFAULT 6,
   min_interval_minutes INTEGER NOT NULL DEFAULT 90,
@@ -171,7 +171,7 @@ CREATE TABLE system_settings (
 );
 
 -- ---------- Account Settings ----------
-CREATE TABLE account_settings (
+CREATE TABLE IF NOT EXISTS account_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   account_id UUID NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   daily_post_limit INTEGER NOT NULL DEFAULT 6,
@@ -183,20 +183,20 @@ CREATE TABLE account_settings (
   priority_categories TEXT[] NOT NULL DEFAULT '{}',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_accsettings_account ON account_settings(account_id);
+CREATE INDEX IF NOT EXISTS idx_accsettings_account ON account_settings(account_id);
 
 -- ---------- Content Rules ----------
-CREATE TABLE content_rules (
+CREATE TABLE IF NOT EXISTS content_rules (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   rule_type TEXT NOT NULL,                   -- ng_word, ng_category, priority_category, required_hashtag
   value TEXT NOT NULL,
   is_active BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_rules_type ON content_rules(rule_type);
+CREATE INDEX IF NOT EXISTS idx_rules_type ON content_rules(rule_type);
 
 -- ---------- AI Generation Logs ----------
-CREATE TABLE ai_generation_logs (
+CREATE TABLE IF NOT EXISTS ai_generation_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   candidate_id UUID REFERENCES candidate_posts(id),
   prompt_type TEXT NOT NULL,                 -- post_body, recommendation, hashtag, risk
@@ -209,20 +209,20 @@ CREATE TABLE ai_generation_logs (
   error_message TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_ailogs_date ON ai_generation_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ailogs_date ON ai_generation_logs(created_at DESC);
 
 -- ---------- Approval Logs ----------
-CREATE TABLE approval_logs (
+CREATE TABLE IF NOT EXISTS approval_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   candidate_id UUID NOT NULL REFERENCES candidate_posts(id),
   action TEXT NOT NULL,                      -- approved, rejected, alternative, regenerate, time_change
   note TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_approval_date ON approval_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_approval_date ON approval_logs(created_at DESC);
 
 -- ---------- Workflow Logs ----------
-CREATE TABLE workflow_logs (
+CREATE TABLE IF NOT EXISTS workflow_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workflow_type TEXT NOT NULL,               -- collect, score, generate, post, analyze
   status TEXT NOT NULL DEFAULT 'started',    -- started, completed, failed
@@ -231,10 +231,10 @@ CREATE TABLE workflow_logs (
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ
 );
-CREATE INDEX idx_workflow_date ON workflow_logs(started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_workflow_date ON workflow_logs(started_at DESC);
 
 -- ---------- Error Logs ----------
-CREATE TABLE error_logs (
+CREATE TABLE IF NOT EXISTS error_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   source TEXT NOT NULL,
   message TEXT NOT NULL,
@@ -242,7 +242,7 @@ CREATE TABLE error_logs (
   metadata JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-CREATE INDEX idx_errors_date ON error_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_errors_date ON error_logs(created_at DESC);
 
 -- ---------- Updated At Trigger ----------
 CREATE OR REPLACE FUNCTION update_updated_at()
@@ -253,9 +253,20 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS tr_users_updated ON users;
 CREATE TRIGGER tr_users_updated BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS tr_accounts_updated ON accounts;
 CREATE TRIGGER tr_accounts_updated BEFORE UPDATE ON accounts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS tr_candidates_updated ON candidate_posts;
 CREATE TRIGGER tr_candidates_updated BEFORE UPDATE ON candidate_posts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS tr_scheduled_updated ON scheduled_posts;
 CREATE TRIGGER tr_scheduled_updated BEFORE UPDATE ON scheduled_posts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS tr_syssettings_updated ON system_settings;
 CREATE TRIGGER tr_syssettings_updated BEFORE UPDATE ON system_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+DROP TRIGGER IF EXISTS tr_accsettings_updated ON account_settings;
 CREATE TRIGGER tr_accsettings_updated BEFORE UPDATE ON account_settings FOR EACH ROW EXECUTE FUNCTION update_updated_at();
