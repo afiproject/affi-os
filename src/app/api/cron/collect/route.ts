@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isDemoMode } from "@/lib/supabase/admin";
+import { isDemoMode, getAdminClient } from "@/lib/supabase/admin";
 import { createAffiliateSource } from "@/lib/adapters/affiliate-source";
 import {
   upsertItems,
@@ -9,6 +9,28 @@ import {
   completeWorkflow,
   logError,
 } from "@/lib/db";
+
+// デフォルトのaffiliate_sourceを取得または作成
+async function getOrCreateDefaultSource(): Promise<string> {
+  const db = getAdminClient();
+  const { data: existing } = await db
+    .from("affiliate_sources")
+    .select("id")
+    .eq("type", "demo")
+    .limit(1)
+    .single();
+
+  if (existing) return existing.id;
+
+  const { data: created, error } = await db
+    .from("affiliate_sources")
+    .insert({ name: "デモ素材", type: "demo", base_url: "", is_active: true })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+  return created!.id;
+}
 
 // GET /api/cron/collect — 素材収集ジョブ
 // Vercel Cron: 毎日6時に実行
@@ -55,10 +77,18 @@ export async function GET(request: Request) {
       totalCollected += count;
     }
 
+    // ソースが0件の場合、デフォルトソースを作成してデモデータを投入
     if (sources.length === 0) {
+      const defaultSourceId = await getOrCreateDefaultSource();
       const adapter = createAffiliateSource();
       const items = await adapter.fetchItems({ sortBy: "newest", limit: 20 });
-      totalCollected = await upsertItems(items);
+
+      const itemsWithSource = items.map((item) => ({
+        ...item,
+        source_id: defaultSourceId,
+      }));
+
+      totalCollected = await upsertItems(itemsWithSource);
     }
 
     await completeWorkflow(workflowId, totalCollected);
