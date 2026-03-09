@@ -25,19 +25,46 @@ X(Twitter)自動アフィリエイト投稿システム。Next.js 15 + Supabase 
 - ダッシュボード画面は正常に表示される
 - URL: `https://affi-28dzci6j7-yus-projects-8f9fc121.vercel.app`
 
-## 現在の問題（次回対応）
+## 修正済み（mainへのマージ待ち）
 
-### collect cronエンドポイントが500エラー
-- `/api/cron/collect` を実行すると `{"error":"Collection failed","details":"[object Object]"}` が返る
-- エラー詳細が `[object Object]` のままで原因が特定できていない
-- `src/app/api/cron/collect/route.ts` のcatchブロックで `JSON.stringify(error)` に修正済みだが、**デプロイに反映されていない可能性あり**
+### collect cron 500エラーの修正（ブランチ: claude/affi-os-automation-F0hsx）
+**原因特定済み**: `affiliate_sources` テーブルが空の状態でcollectを実行すると、デモデータの偽source_id（"src-1"）がそのままDBに挿入されるため、外部キー制約違反で500エラーが発生していた。
 
-### 次回やるべきこと
-1. **デプロイ元ブランチの確認**: Vercelがmainブランチからデプロイしている場合、`claude/affi-os-automation-F0hsx` ブランチの変更がデプロイされていない。mainにマージするか、Vercelのデプロイ設定を確認する必要がある
-2. **Vercel Function Logsの確認**: Vercelダッシュボード → Functions → ログで実際のエラー詳細を確認
-3. **collectエンドポイントのデバッグ**: エラー原因を特定して修正
-4. **全cronフローのテスト**: collect → score → generate → post の順にテスト
-5. **自動投稿の動作確認**
+**修正内容** (`src/app/api/cron/collect/route.ts`):
+- ソースが0件の場合、`affiliate_sources` テーブルにデフォルトソース（type: "demo"）を自動作成
+- そのIDを使ってデモデータを正しくinsert
+- エラーログを `JSON.stringify(error)` に改善（[object Object]問題の修正）
+
+## 次回やるべきこと（優先順）
+
+### 1. featureブランチをmainにマージ
+Vercelはmainブランチからデプロイしている。修正はfeatureブランチにしかないため、マージが必要。
+- 方法A: GitHub/Giteaの「PR表示」ボタンからPRをマージ
+- 方法B: Vercelの設定でデプロイブランチを変更
+
+### 2. collectエンドポイントの動作確認
+マージ・デプロイ後、ChromeのDevTools Console (F12)で:
+```javascript
+fetch('/api/cron/collect', {headers: {'Authorization': 'Bearer yut000'}}).then(r => r.text()).then(console.log)
+```
+期待するレスポンス: `{"success":true,"workflow":"collect","sources_count":0,"items_collected":X,...}`
+
+### 3. 残りのcronフローをテスト
+```javascript
+// score
+fetch('/api/cron/score', {headers: {'Authorization': 'Bearer yut000'}}).then(r => r.text()).then(console.log)
+// generate
+fetch('/api/cron/generate', {headers: {'Authorization': 'Bearer yut000'}}).then(r => r.text()).then(console.log)
+// post
+fetch('/api/cron/post', {headers: {'Authorization': 'Bearer yut000'}}).then(r => r.text()).then(console.log)
+```
+
+### 4. ダッシュボードで投稿候補を承認
+- 「投稿候補」ページで候補を確認・承認
+- 承認後「予約一覧」で予約投稿が作成されるか確認
+
+### 5. 自動投稿の動作確認
+- postエンドポイントで実際にXに投稿されるか確認
 
 ## ブランチ情報
 - 開発ブランチ: `claude/affi-os-automation-F0hsx`
@@ -51,7 +78,8 @@ X(Twitter)自動アフィリエイト投稿システム。Next.js 15 + Supabase 
 - 21:00 → /api/cron/analyze（分析）
 
 ## テスト方法
-ChromeのDevTools Console (F12) で:
+ChromeのDevTools Console (F12) で affi-osのサイトを開いた状態で:
 ```javascript
 fetch('/api/cron/collect', {headers: {'Authorization': 'Bearer yut000'}}).then(r => r.text()).then(console.log)
 ```
+※ `allow pasting` を先にConsoleに入力してからコードを貼り付ける
