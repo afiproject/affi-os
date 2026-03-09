@@ -71,10 +71,11 @@ export async function GET(request: Request) {
       timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    await completeWorkflow(workflowId, 0, String(error));
-    await logError("cron/collect", String(error));
+    const errMsg = error instanceof Error ? error.message : JSON.stringify(error);
+    await completeWorkflow(workflowId, 0, errMsg).catch(() => {});
+    await logError("cron/collect", errMsg).catch(() => {});
     return NextResponse.json(
-      { error: "Collection failed", details: String(error) },
+      { error: "Collection failed", details: errMsg },
       { status: 500 }
     );
   }
