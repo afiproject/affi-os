@@ -208,9 +208,7 @@ export async function updateCandidateStatus(
 
 export async function getTopCandidatesWithoutVariants(limit: number = 5): Promise<CandidatePost[]> {
   const db = getAdminClient();
-  // 今日作成され、まだvariantが生成されていないcandidateを取得
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // variantが生成されていないcandidateを取得（日付制限なし）
   const { data, error } = await db
     .from("candidate_posts")
     .select(`
@@ -218,8 +216,7 @@ export async function getTopCandidatesWithoutVariants(limit: number = 5): Promis
       item:affiliate_items(*),
       variants:candidate_post_variants(id)
     `)
-    .eq("status", "pending")
-    .gte("created_at", today.toISOString())
+    .in("status", ["pending", "scored"])
     .order("total_score", { ascending: false })
     .limit(limit);
   if (error) throw error;
