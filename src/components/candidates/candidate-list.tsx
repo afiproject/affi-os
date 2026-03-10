@@ -24,10 +24,44 @@ export function CandidateList({ candidates: initial }: Props) {
     rejected: candidates.filter((c) => c.status === "rejected").length,
   };
 
-  function handleAction(id: string, action: "approved" | "rejected" | "regenerate_requested") {
+  async function handleAction(id: string, action: "approved" | "rejected" | "regenerate_requested") {
+    // Update UI immediately
     setCandidates((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: action } : c))
     );
+
+    try {
+      // Persist status to DB
+      await fetch("/api/candidates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+
+      // If approved, create a scheduled post
+      if (action === "approved") {
+        const candidate = candidates.find((c) => c.id === id);
+        const variant = candidate?.variants.find((v) => v.is_selected) || candidate?.variants[0];
+        if (candidate && variant) {
+          await fetch("/api/schedule", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              candidate_id: id,
+              account_id: candidate.account_id,
+              variant_id: variant.id,
+              scheduled_at: candidate.recommended_time
+                ? new Date(
+                    new Date().toDateString() + " " + candidate.recommended_time
+                  ).toISOString()
+                : new Date(Date.now() + 3600000).toISOString(),
+            }),
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Action failed:", error);
+    }
   }
 
   const filters: { key: FilterStatus; label: string }[] = [
