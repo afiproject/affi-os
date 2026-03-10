@@ -3,7 +3,7 @@ import { isDemoMode } from "@/lib/supabase/admin";
 import { createAIProvider } from "@/lib/adapters/ai-provider";
 import { buildPostGenerationPrompt, buildHashtagPrompt } from "@/lib/prompts/post-generation";
 import {
-  getTopCandidatesWithoutVariants,
+  getTopCandidatesForGeneration,
   createVariant,
   getContentRules,
   getAccountSettings,
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
     const allNgWords = [...new Set([...ngWords, ...accountNgWords])];
 
     // 上位候補を取得（まだvariantが生成されていないもの）
-    const candidates = await getTopCandidatesWithoutVariants(5);
+    const candidates = await getTopCandidatesForGeneration(5);
     let generatedCount = 0;
 
     for (const candidate of candidates) {

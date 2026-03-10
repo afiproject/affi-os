@@ -206,9 +206,15 @@ export async function updateCandidateStatus(
   if (error) throw error;
 }
 
-export async function getTopCandidatesWithoutVariants(limit: number = 5): Promise<CandidatePost[]> {
+export async function getTopCandidatesForGeneration(limit: number = 5): Promise<CandidatePost[]> {
   const db = getAdminClient();
-  // variantが生成されていないcandidateを取得（日付制限なし）
+  // デモ/空のvariantsを先に削除（body_textが空またはデモテキストのもの）
+  await db
+    .from("candidate_post_variants")
+    .delete()
+    .or("body_text.is.null,body_text.eq.,body_text.like.[デモ]%");
+
+  // variantがないcandidateを取得
   const { data, error } = await db
     .from("candidate_posts")
     .select(`
