@@ -126,14 +126,80 @@ export class OpenAIProvider implements AIProvider {
   }
 }
 
+// ---------- Gemini Provider ----------
+export class GeminiProvider implements AIProvider {
+  readonly name = "gemini";
+
+  async generateText(prompt: string, systemPrompt?: string): Promise<AIGenerationResult> {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("[GeminiProvider] GEMINI_API_KEY is not set");
+      return this.mockGenerate(prompt);
+    }
+
+    const start = Date.now();
+    const model = process.env.AI_MODEL || "gemini-2.0-flash";
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const contents = [];
+    if (systemPrompt) {
+      contents.push({ role: "user", parts: [{ text: systemPrompt }] });
+      contents.push({ role: "model", parts: [{ text: "了解しました。" }] });
+    }
+    contents.push({ role: "user", parts: [{ text: prompt }] });
+
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents,
+        generationConfig: { maxOutputTokens: 1024 },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      console.error("[GeminiProvider] API error:", JSON.stringify(data));
+      return this.mockGenerate(prompt);
+    }
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    const usage = data.usageMetadata || {};
+
+    return {
+      text,
+      input_tokens: usage.promptTokenCount || 0,
+      output_tokens: usage.candidatesTokenCount || 0,
+      duration_ms: Date.now() - start,
+      model,
+      provider: "gemini",
+    };
+  }
+
+  private async mockGenerate(prompt: string): Promise<AIGenerationResult> {
+    await new Promise((r) => setTimeout(r, 100));
+    return {
+      text: `[デモ] Gemini生成文面。プロンプト: ${prompt.slice(0, 50)}...`,
+      input_tokens: prompt.length,
+      output_tokens: 50,
+      duration_ms: 100,
+      model: "demo-mock",
+      provider: "gemini",
+    };
+  }
+}
+
 // ---------- Factory ----------
 export function createAIProvider(provider?: string): AIProvider {
-  const p = provider || process.env.AI_PROVIDER || "claude";
+  const p = provider || process.env.AI_PROVIDER || "gemini";
   switch (p) {
     case "openai":
       return new OpenAIProvider();
     case "claude":
-    default:
       return new ClaudeProvider();
+    case "gemini":
+    default:
+      return new GeminiProvider();
   }
 }
