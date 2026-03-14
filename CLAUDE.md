@@ -3,79 +3,115 @@
 ## プロジェクト概要
 X(Twitter)自動アフィリエイト投稿システム。Next.js 15 + Supabase + Vercel + X API v2。
 
-## 現在の状況（2026-03-09 時点）
+## 現在の状況（2026-03-14 時点）
 
-### DB状態
-- users: 1件（たこちゃ / you@example.com）
-- accounts: 1件（X / av_review_xX / たこちゃ）※重複削除済み
-- affiliate_items: 5件（collectで収集済み）
-- candidate_posts: 5件（scoreで作成済み）
-- candidate_post_variants: 15件（generateで作成済み。ただし **body_text が全て空**）
-- scheduled_posts: 0件
-- affiliate_sources: 1件（type: "demo"、collectで自動作成）
+### 完了済み（全てmainマージ済み）
+1. ✅ collect cron 500エラー修正（PR#3）
+2. ✅ フロントエンドのデモデータ問題修正（PR#4）
+3. ✅ 承認ボタンのDB保存修正
+4. ✅ Google Gemini / Groqプロバイダー追加（無料AI生成用）
+5. ✅ generate時に空variantsを自動削除する修正
+6. ✅ getTopCandidatesの日付フィルター修正
+7. ✅ X API診断エンドポイント（/api/test-x）追加
+8. ✅ DMM/FANZA API連携アダプター追加
+9. ✅ body_text生成 → 成功確認済み（Gemini/Groqで動作）
+10. ✅ X投稿テスト → 成功確認済み（テスト投稿がXに表示された）
+11. ✅ 本番投稿テスト → 成功確認済み（posted:1）
 
-### body_textが空の問題
-generateは15件のvariantsを作成したがbody_textが全て空。原因はClaude APIがエラーを返しているか、ANTHROPIC_API_KEYの問題。ai-provider.tsにエラーハンドリングを追加済み（APIエラー時はmockGenerateにフォールバック）。
-→ **次回**: DBの既存variantsを削除してgenerateを再実行し、body_textが生成されるか確認する必要あり。
+### X API設定（解決済み）
+- **問題**: 503 Service Unavailableが4日間続いた
+- **原因1**: X Developer Portalでアプリが「Free」プランのままだった（Freeプランは廃止済み）
+- **原因2**: console.x.com で「従量課金制（Pay Per Use）」に切り替え + $5チャージで解決
+- **原因3**: developer.x.comのキーではなくconsole.x.comのOAuth 1.0キーを使う必要があった
+- Vercel環境変数: X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET（全てconsole.x.comから取得したもの）
 
-## 完了済み修正（全てブランチ: claude/affi-os-automation-F0hsx）
+### 現在の停止ポイント ⚠️
+**DMM/FANZAの実データ収集がまだ完了していない。**
 
-### 修正1: collect cron 500エラー（PR#3でmainマージ済み）
-- affiliate_sourcesが空の時にデフォルトソース自動作成
-- エラーログの[object Object]問題修正
+DBにはまだ古いデモデータ（example.com）が残っている。以下のクリーンアップSQLを**まだ実行していない**：
 
-### 修正2: フロントエンドのデモデータ問題（PR#4でmainマージ済み）
-**問題**: candidates/page.tsx、queue/page.tsx、analytics/page.tsx、settings/page.tsx が `isDemoMode()` チェックなしにハードコードのデモデータを常に表示していた。DEMO_MODE=0にしても意味がなかった。
-**修正**: 全ページをasync Server Componentに変更し、isDemoMode()チェック付きでDBからデータ取得するように修正。
-
-### 修正3: 承認ボタンがDBに保存されない問題（mainマージ待ち）
-**問題**: candidate-list.tsxとcandidate-detail.tsxの承認/却下ボタンがクライアントstateのみ更新し、APIを呼んでいなかった。ページ遷移で元に戻り、scheduled_postsも作成されなかった。
-**修正**:
-- 承認ボタンクリック時に `/api/candidates` (POST) でステータス更新
-- 承認時に `/api/schedule` (POST) で予約投稿も自動作成
-- 却下ボタンクリック時も `/api/candidates` (POST) でDB更新
-
-## 次回やるべきこと（優先順）
-
-### 1. featureブランチをmainにマージ（修正3）
-ブランチ `claude/affi-os-automation-F0hsx` の最新コミットがまだmainにマージされていない。
-GitHub で PR作成 → マージ → Vercel自動デプロイ。
-
-### 2. 承認→予約フローのテスト
-マージ・デプロイ後、最新デプロイURLで:
-1. 「投稿候補」ページを開く
-2. 候補を「採用」ボタンで承認
-3. 「予約一覧」ページで予約が作成されているか確認
-
-### 3. AI文面生成（body_text空）の修正確認
-既存の空variantsを削除してgenerateを再実行:
+#### 作業再開時にまずやること（Supabase SQL Editor）
+**前の文章を消して**、以下を貼って「Run」：
 ```sql
--- SQL Editorで実行
+UPDATE affiliate_sources SET is_active = false WHERE type = 'demo';
 DELETE FROM candidate_post_variants;
+DELETE FROM scheduled_posts;
+DELETE FROM candidate_posts;
+DELETE FROM affiliate_items;
 ```
-その後、affi-osサイトのConsoleで:
+
+#### その後、affi-osの最新デプロイURLのConsole（F12）で順番に実行：
+
+**1. FANZA動画を収集：**
+```javascript
+fetch('/api/cron/collect', {headers: {'Authorization': 'Bearer yut000'}}).then(r => r.text()).then(console.log)
+```
+
+**2. 収集結果を確認（Supabase SQL Editor、前の文章を消して）：**
+```sql
+SELECT title, affiliate_url, source_id FROM affiliate_items ORDER BY collected_at DESC LIMIT 10;
+```
+→ affiliate_urlが `https://al.dmm.co.jp/...` のようなFANZAのURLになっていればOK
+
+**3. スコアリング（Console）：**
+```javascript
+fetch('/api/cron/score', {headers: {'Authorization': 'Bearer yut000'}}).then(r => r.text()).then(console.log)
+```
+
+**4. 文面生成（Console）：**
 ```javascript
 fetch('/api/cron/generate', {headers: {'Authorization': 'Bearer yut000'}}).then(r => r.text()).then(console.log)
 ```
-生成後にSQL Editorで確認:
-```sql
-SELECT id, body_text, tone FROM candidate_post_variants LIMIT 5;
-```
-body_textがまだ空なら、Vercelの `ANTHROPIC_API_KEY` を確認、またはVercelのFunction Logsで `[ClaudeProvider] API error:` を検索。
 
-### 4. 自動投稿のE2Eテスト
-承認 → 予約作成 → postエンドポイント実行 → Xに投稿されるか確認:
+**5. affi-osサイトで候補を「採用」ボタンで承認**
+
+**6. 投稿実行（Console）：**
 ```javascript
 fetch('/api/cron/post', {headers: {'Authorization': 'Bearer yut000'}}).then(r => r.text()).then(console.log)
 ```
 
-### 5. Cronスケジュールの動作確認
-Vercel Cronが毎日自動で動くか翌日に確認:
+**7. Xアカウント（@av_review_xX）で投稿を確認** → FANZAのアフィリエイトリンク付きの投稿が表示されるはず
+
+## DMMアフィリエイト情報
+- **API ID**: `BeXRzsMX6quNr3MHpGLu`
+- **アフィリエイトID（API用）**: `affiking1414-990`（末尾990〜999がAPI用。通常の `affiking1414-004` はサイト表示用）
+- **Vercel環境変数**: `DMM_API_ID` = `BeXRzsMX6quNr3MHpGLu`, `DMM_AFFILIATE_ID` = `affiking1414-990`（設定済み）
+- **サイト**: FANZA（アダルト動画）
+- **API**: DMM Affiliate API v3（https://api.dmm.com/affiliate/v3/ItemList）
+
+### クレジット表示義務
+DMM APIを使う場合、affi-osのWebサイト上に以下のクレジットを表示する必要がある（利用規約）：
+> **Powered by FANZA Webサービス**
+
+X投稿文自体には不要。affi-osの管理画面のフッターなどに表示すればOK。
+→ **未対応。後で対応が必要。**
+
+## まだやっていないこと（優先順）
+
+### 1. DMM実データでのE2Eテスト
+上記「作業再開時にまずやること」を実行して、FANZA動画のアフィリエイトリンク付き投稿がXに投稿されるか確認する。
+
+### 2. 投稿文カスタム入力機能
+ユーザーが承認時に投稿文を自分で編集・入力できるようにする。
+現状はAI生成の文面がそのまま投稿される。
+
+### 3. クレジット表示の実装
+affi-osサイトのフッターに「Powered by FANZA Webサービス」を追加。
+
+### 4. Cronスケジュールの動作確認
+Vercel Cronが毎日自動で動くか翌日に確認：
 - 06:00 collect → 07:00 score → 08:00 generate → 09:00 post → 21:00 analyze
 
 ## ブランチ情報
 - 開発ブランチ: `claude/affi-os-automation-F0hsx`
 - Supabase Project ID: `ptslpbibkrjmvdnnngjq`
+
+## Vercel環境変数（設定済み）
+- X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET（console.x.comのOAuth 1.0キー）
+- DMM_API_ID = `BeXRzsMX6quNr3MHpGLu`
+- DMM_AFFILIATE_ID = `affiking1414-990`
+- CRON_SECRET = `yut000`
+- その他: ANTHROPIC_API_KEY, GOOGLE_AI_API_KEY等
 
 ## Vercel Cronスケジュール（vercel.json）
 - 06:00 → /api/cron/collect（素材収集）
@@ -91,7 +127,10 @@ fetch('/api/cron/collect', {headers: {'Authorization': 'Bearer yut000'}}).then(r
 ```
 ※ `allow pasting` を先にConsoleに入力してからコードを貼り付ける
 ※ 必ずVercel Deploymentsの最新URLを使うこと（古いURLは古いコードで動く）
+※ SQL実行はSupabase SQL Editorで行う（ブラウザConsoleではない）
+※ SQL Editorでは**前の文章を必ず消してから**新しいSQLを貼る
 
 ## Xアカウント情報
 - ユーザーID: av_review_xX
 - 表示名: たこちゃ
+- X API: console.x.com で管理（従量課金制、$5チャージ済み）
