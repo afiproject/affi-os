@@ -13,6 +13,34 @@ import {
 // デフォルトのaffiliate_sourceを取得または作成
 async function getOrCreateDefaultSource(): Promise<string> {
   const db = getAdminClient();
+
+  // DMM APIが設定されている場合はDMMソースを優先
+  if (process.env.DMM_API_ID && process.env.DMM_AFFILIATE_ID) {
+    const { data: existing } = await db
+      .from("affiliate_sources")
+      .select("id")
+      .eq("type", "dmm")
+      .limit(1)
+      .single();
+
+    if (existing) return existing.id;
+
+    const { data: created, error } = await db
+      .from("affiliate_sources")
+      .insert({
+        name: "FANZA動画",
+        type: "dmm",
+        base_url: "https://api.dmm.com/affiliate/v3/ItemList",
+        is_active: true,
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+    return created!.id;
+  }
+
+  // DMM未設定の場合はデモソース
   const { data: existing } = await db
     .from("affiliate_sources")
     .select("id")
@@ -77,10 +105,11 @@ export async function GET(request: Request) {
       totalCollected += count;
     }
 
-    // ソースが0件の場合、デフォルトソースを作成してデモデータを投入
+    // ソースが0件の場合、デフォルトソースを作成（DMMがあればDMM、なければデモ）
     if (sources.length === 0) {
       const defaultSourceId = await getOrCreateDefaultSource();
-      const adapter = createAffiliateSource();
+      const sourceType = (process.env.DMM_API_ID && process.env.DMM_AFFILIATE_ID) ? "dmm" : "demo";
+      const adapter = createAffiliateSource(sourceType);
       const items = await adapter.fetchItems({ sortBy: "newest", limit: 20 });
 
       const itemsWithSource = items.map((item) => ({
