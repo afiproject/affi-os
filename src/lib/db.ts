@@ -206,11 +206,15 @@ export async function updateCandidateStatus(
   if (error) throw error;
 }
 
-export async function getTopCandidatesWithoutVariants(limit: number = 5): Promise<CandidatePost[]> {
+export async function getTopCandidatesForGeneration(limit: number = 5): Promise<CandidatePost[]> {
   const db = getAdminClient();
-  // 今日作成され、まだvariantが生成されていないcandidateを取得
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // デモ/空のvariantsを先に削除（body_textが空またはデモテキストのもの）
+  await db
+    .from("candidate_post_variants")
+    .delete()
+    .or("body_text.is.null,body_text.eq.,body_text.like.[デモ]%");
+
+  // variantがないcandidateを取得
   const { data, error } = await db
     .from("candidate_posts")
     .select(`
@@ -218,8 +222,7 @@ export async function getTopCandidatesWithoutVariants(limit: number = 5): Promis
       item:affiliate_items(*),
       variants:candidate_post_variants(id)
     `)
-    .eq("status", "pending")
-    .gte("created_at", today.toISOString())
+    .in("status", ["pending", "scored"])
     .order("total_score", { ascending: false })
     .limit(limit);
   if (error) throw error;

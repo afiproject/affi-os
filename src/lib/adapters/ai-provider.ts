@@ -190,16 +190,74 @@ export class GeminiProvider implements AIProvider {
   }
 }
 
+// ---------- Groq Provider (無料・クレカ不要) ----------
+export class GroqProvider implements AIProvider {
+  readonly name = "groq";
+
+  async generateText(prompt: string, systemPrompt?: string): Promise<AIGenerationResult> {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) {
+      console.error("[GroqProvider] GROQ_API_KEY is not set");
+      return this.mockGenerate(prompt);
+    }
+
+    const start = Date.now();
+    const model = process.env.AI_MODEL || "llama-3.3-70b-versatile";
+    const messages = [];
+    if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
+    messages.push({ role: "user", content: prompt });
+
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({ model, messages, max_tokens: 1024 }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      console.error("[GroqProvider] API error:", JSON.stringify(data));
+      return this.mockGenerate(prompt);
+    }
+
+    return {
+      text: data.choices?.[0]?.message?.content || "",
+      input_tokens: data.usage?.prompt_tokens || 0,
+      output_tokens: data.usage?.completion_tokens || 0,
+      duration_ms: Date.now() - start,
+      model: data.model || model,
+      provider: "groq",
+    };
+  }
+
+  private async mockGenerate(prompt: string): Promise<AIGenerationResult> {
+    await new Promise((r) => setTimeout(r, 100));
+    return {
+      text: `[デモ] Groq生成文面。プロンプト: ${prompt.slice(0, 50)}...`,
+      input_tokens: prompt.length,
+      output_tokens: 50,
+      duration_ms: 100,
+      model: "demo-mock",
+      provider: "groq",
+    };
+  }
+}
+
 // ---------- Factory ----------
 export function createAIProvider(provider?: string): AIProvider {
-  const p = provider || process.env.AI_PROVIDER || "gemini";
+  const p = provider || process.env.AI_PROVIDER || "groq";
   switch (p) {
     case "openai":
       return new OpenAIProvider();
     case "claude":
       return new ClaudeProvider();
     case "gemini":
-    default:
       return new GeminiProvider();
+    case "groq":
+    default:
+      return new GroqProvider();
   }
 }
