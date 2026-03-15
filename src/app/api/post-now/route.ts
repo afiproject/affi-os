@@ -9,6 +9,7 @@ import {
 
 // Vercel関数タイムアウトを延長（動画アップロードに時間がかかるため）
 export const maxDuration = 60;
+export const preferredRegion = ["hnd1"];
 
 const MAX_RETRIES = 3;
 
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
     const affiliateUrl = (item?.affiliate_url as string) || "";
     const sampleVideoUrl = (item?.sample_video_url as string) || "";
     const cachedVideoUrl = (item?.cached_video_url as string) || "";
+    const thumbnailUrl = (item?.thumbnail_url as string) || "";
     const postMode = (post.post_mode as string) || "A";
 
     let fullText: string;
@@ -102,6 +104,7 @@ export async function POST(request: Request) {
       video_url: sampleVideoUrl || undefined,
       cached_video_url: cachedVideoUrl || undefined,
       affiliate_url: affiliateUrl || undefined,
+      thumbnail_url: thumbnailUrl || undefined,
     });
 
     if (result.success && result.external_post_id) {
