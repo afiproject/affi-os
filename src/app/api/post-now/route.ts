@@ -7,6 +7,9 @@ import {
   logError,
 } from "@/lib/db";
 
+// Vercel関数タイムアウトを延長（動画アップロードに時間がかかるため）
+export const maxDuration = 60;
+
 const MAX_RETRIES = 3;
 
 // POST /api/post-now — 特定のスケジュール投稿を即時実行
@@ -88,7 +91,9 @@ export async function POST(request: Request) {
       scheduled_post_id,
       postMode,
       textLength: fullText.length,
-      hasVideo: !!cachedVideoUrl || !!sampleVideoUrl,
+      sampleVideoUrl: sampleVideoUrl || "(none)",
+      cachedVideoUrl: cachedVideoUrl || "(none)",
+      affiliateUrl: affiliateUrl || "(none)",
     });
 
     const adapter = createPostingAdapter("x");

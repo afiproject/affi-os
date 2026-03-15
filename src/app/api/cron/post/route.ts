@@ -10,6 +10,8 @@ import {
   logError,
 } from "@/lib/db";
 
+export const maxDuration = 60;
+
 const MAX_RETRIES = 3;
 
 // GET /api/cron/post — 投稿実行ジョブ

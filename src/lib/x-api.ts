@@ -405,7 +405,9 @@ export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
         continue;
       }
       const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("video") && !contentType.includes("octet-stream")) {
+      console.log(`[downloadVideo] Content-Type: ${contentType} for ${url}`);
+      // video/*, application/octet-stream, またはmp4拡張子のURLならOK
+      if (!contentType.includes("video") && !contentType.includes("octet-stream") && !url.includes(".mp4")) {
         console.log(`[downloadVideo] Not a video (${contentType}): ${url}`);
         continue;
       }
