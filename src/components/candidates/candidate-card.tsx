@@ -24,14 +24,26 @@ import {
   Clock,
   Star,
   Film,
+  Play,
+  X,
+  Zap,
+  CalendarClock,
+  Bot,
 } from "lucide-react";
+
+type ScheduleMode = "now" | "custom" | "ai";
 
 interface Props {
   candidate: CandidatePost;
   onAction: (
     id: string,
     action: "approved" | "rejected" | "regenerate_requested",
-    options?: { post_mode?: "A" | "B"; custom_body_text?: string }
+    options?: {
+      post_mode?: "A" | "B";
+      custom_body_text?: string;
+      schedule_mode?: ScheduleMode;
+      scheduled_at?: string;
+    }
   ) => void;
 }
 
@@ -41,11 +53,18 @@ export function CandidateCard({ candidate, onAction }: Props) {
   const [useCustomText, setUseCustomText] = useState(false);
   const [customText, setCustomText] = useState("");
   const [showApproveForm, setShowApproveForm] = useState(false);
+  const [showVideoPreview, setShowVideoPreview] = useState(false);
+  const [scheduleMode, setScheduleMode] = useState<ScheduleMode>("now");
+  const [customTime, setCustomTime] = useState("");
 
   const handleApprove = () => {
     onAction(candidate.id, "approved", {
       post_mode: postMode,
       custom_body_text: useCustomText && customText.trim() ? customText.trim() : undefined,
+      schedule_mode: scheduleMode,
+      scheduled_at: scheduleMode === "custom" && customTime
+        ? new Date(new Date().toDateString() + " " + customTime).toISOString()
+        : undefined,
     });
     setShowApproveForm(false);
   };
@@ -85,9 +104,12 @@ export function CandidateCard({ candidate, onAction }: Props) {
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col gap-3">
-        {/* サムネイル表示 */}
+        {/* サムネイル表示（タップで動画プレビュー） */}
         {candidate.item.thumbnail_url && (
-          <div className="relative w-full aspect-video rounded-md overflow-hidden bg-secondary">
+          <div
+            className="relative w-full aspect-video rounded-md overflow-hidden bg-secondary cursor-pointer group"
+            onClick={() => candidate.item.sample_video_url && setShowVideoPreview(true)}
+          >
             <Image
               src={candidate.item.thumbnail_url}
               alt={candidate.item.title}
@@ -95,6 +117,36 @@ export function CandidateCard({ candidate, onAction }: Props) {
               className="object-cover"
               unoptimized
             />
+            {candidate.item.sample_video_url && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center">
+                  <Play className="w-6 h-6 text-black ml-0.5" />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 動画プレビューモーダル */}
+        {showVideoPreview && candidate.item.sample_video_url && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => setShowVideoPreview(false)}>
+            <div className="relative w-full max-w-2xl mx-4" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setShowVideoPreview(false)}
+                className="absolute -top-10 right-0 text-white hover:text-gray-300"
+              >
+                <X className="w-6 h-6" />
+              </button>
+              <video
+                src={candidate.item.sample_video_url}
+                controls
+                autoPlay
+                className="w-full rounded-lg"
+              >
+                お使いのブラウザは動画再生に対応していません
+              </video>
+              <p className="text-white text-xs mt-2 text-center">{candidate.item.title}</p>
+            </div>
           </div>
         )}
 
@@ -191,6 +243,59 @@ export function CandidateCard({ candidate, onAction }: Props) {
               </div>
             </div>
 
+            {/* 投稿時間の選択 */}
+            <div>
+              <label className="text-xs font-medium mb-1 block">投稿タイミング</label>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => setScheduleMode("now")}
+                  className={`flex-1 text-[11px] p-2 rounded border text-center ${
+                    scheduleMode === "now"
+                      ? "border-orange-500 bg-orange-50 text-orange-800"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <Zap className="w-3.5 h-3.5 mx-auto mb-0.5" />
+                  今すぐ
+                </button>
+                <button
+                  onClick={() => setScheduleMode("custom")}
+                  className={`flex-1 text-[11px] p-2 rounded border text-center ${
+                    scheduleMode === "custom"
+                      ? "border-purple-500 bg-purple-50 text-purple-800"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <CalendarClock className="w-3.5 h-3.5 mx-auto mb-0.5" />
+                  時間指定
+                </button>
+                <button
+                  onClick={() => setScheduleMode("ai")}
+                  className={`flex-1 text-[11px] p-2 rounded border text-center ${
+                    scheduleMode === "ai"
+                      ? "border-cyan-500 bg-cyan-50 text-cyan-800"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <Bot className="w-3.5 h-3.5 mx-auto mb-0.5" />
+                  AIお任せ
+                </button>
+              </div>
+              {scheduleMode === "custom" && (
+                <input
+                  type="time"
+                  value={customTime}
+                  onChange={(e) => setCustomTime(e.target.value)}
+                  className="mt-1.5 w-full text-xs p-2 rounded border focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              )}
+              {scheduleMode === "ai" && (
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  AIが最適な投稿時間を自動選択します（推奨: {candidate.recommended_time}）
+                </p>
+              )}
+            </div>
+
             {/* テキスト編集 */}
             <div>
               <label className="text-xs font-medium mb-1 block">投稿テキスト</label>
@@ -232,7 +337,7 @@ export function CandidateCard({ candidate, onAction }: Props) {
             <div className="flex gap-2">
               <Button size="sm" variant="success" className="flex-1" onClick={handleApprove}>
                 <CheckCircle className="w-3.5 h-3.5 mr-1" />
-                投稿を確定
+                {scheduleMode === "now" ? "今すぐ投稿" : "投稿を確定"}
               </Button>
               <Button size="sm" variant="outline" onClick={() => setShowApproveForm(false)}>
                 キャンセル

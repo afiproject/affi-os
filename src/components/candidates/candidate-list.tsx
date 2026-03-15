@@ -27,7 +27,12 @@ export function CandidateList({ candidates: initial }: Props) {
   async function handleAction(
     id: string,
     action: "approved" | "rejected" | "regenerate_requested",
-    options?: { post_mode?: "A" | "B"; custom_body_text?: string }
+    options?: {
+      post_mode?: "A" | "B";
+      custom_body_text?: string;
+      schedule_mode?: "now" | "custom" | "ai";
+      scheduled_at?: string;
+    }
   ) {
     // Update UI immediately
     setCandidates((prev) =>
@@ -36,33 +41,57 @@ export function CandidateList({ candidates: initial }: Props) {
 
     try {
       // Persist status to DB
-      await fetch("/api/candidates", {
+      const statusRes = await fetch("/api/candidates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, action }),
       });
+
+      if (!statusRes.ok) {
+        console.error("Status update failed:", await statusRes.text());
+        return;
+      }
 
       // If approved, create a scheduled post
       if (action === "approved") {
         const candidate = candidates.find((c) => c.id === id);
         const variant = candidate?.variants.find((v) => v.is_selected) || candidate?.variants[0];
         if (candidate && variant) {
-          await fetch("/api/schedule", {
+          // 投稿時間の決定
+          let scheduledAt: string;
+          const scheduleMode = options?.schedule_mode || "now";
+
+          if (scheduleMode === "now") {
+            // 今すぐ投稿: 現在時刻を設定（すぐにcron/postで拾われる）
+            scheduledAt = new Date().toISOString();
+          } else if (scheduleMode === "custom" && options?.scheduled_at) {
+            // 時間指定
+            scheduledAt = options.scheduled_at;
+          } else {
+            // AIお任せ: recommended_timeを使用
+            scheduledAt = candidate.recommended_time
+              ? new Date(
+                  new Date().toDateString() + " " + candidate.recommended_time
+                ).toISOString()
+              : new Date(Date.now() + 3600000).toISOString();
+          }
+
+          const schedRes = await fetch("/api/schedule", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               candidate_id: id,
               account_id: candidate.account_id,
               variant_id: variant.id,
-              scheduled_at: candidate.recommended_time
-                ? new Date(
-                    new Date().toDateString() + " " + candidate.recommended_time
-                  ).toISOString()
-                : new Date(Date.now() + 3600000).toISOString(),
+              scheduled_at: scheduledAt,
               post_mode: options?.post_mode || "A",
               custom_body_text: options?.custom_body_text,
             }),
           });
+
+          if (!schedRes.ok) {
+            console.error("Schedule creation failed:", await schedRes.text());
+          }
         }
       }
     } catch (error) {
