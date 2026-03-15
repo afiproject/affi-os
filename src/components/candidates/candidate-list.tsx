@@ -11,46 +11,37 @@ interface Props {
 type FilterStatus = "all" | "pending" | "approved" | "rejected";
 
 /**
- * ブラウザで動画をダウンロードしてサーバーにアップロード（キャッシュ）
- * ブラウザは日本にあるのでFANZA CDNにアクセス可能
+ * サーバーサイドプロキシ経由で動画をキャッシュ
+ * ブラウザのCORS制限を回避するため、サーバーが代わりにダウンロード
  */
-async function cacheVideoViaBrowser(
+async function cacheVideoViaProxy(
   candidate: CandidatePost
 ): Promise<string | null> {
   const videoUrl = candidate.item.sample_video_url;
   if (!videoUrl || candidate.item.cached_video_url) {
-    // 動画がないか、すでにキャッシュ済み
     return candidate.item.cached_video_url || null;
   }
 
   try {
-    console.log(`[cacheVideo] Downloading: ${videoUrl}`);
-    const res = await fetch(videoUrl);
-    if (!res.ok) {
-      console.warn(`[cacheVideo] Download failed (${res.status}): ${videoUrl}`);
-      return null;
-    }
-    const blob = await res.blob();
-    console.log(`[cacheVideo] Downloaded ${blob.size} bytes`);
-
-    // サーバーのキャッシュAPIにアップロード
-    const formData = new FormData();
-    formData.append("item_id", candidate.item.id);
-    formData.append("external_id", candidate.item.external_id);
-    formData.append("video", blob, `${candidate.item.external_id}.mp4`);
-
-    const uploadRes = await fetch("/api/cache-video", {
+    console.log(`[cacheVideo] Requesting server proxy for: ${videoUrl}`);
+    const res = await fetch("/api/proxy-video", {
       method: "POST",
-      body: formData,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        item_id: candidate.item.id,
+        external_id: candidate.item.external_id,
+        video_url: videoUrl,
+      }),
     });
 
-    if (!uploadRes.ok) {
-      console.warn(`[cacheVideo] Upload failed: ${await uploadRes.text()}`);
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      console.warn(`[cacheVideo] Proxy failed (${res.status}):`, errorData);
       return null;
     }
 
-    const data = await uploadRes.json();
-    console.log(`[cacheVideo] Cached: ${data.cached_video_url}`);
+    const data = await res.json();
+    console.log(`[cacheVideo] Cached: ${data.cached_video_url} (${data.size} bytes)`);
     return data.cached_video_url;
   } catch (error) {
     console.warn(`[cacheVideo] Error: ${String(error)}`);
@@ -95,7 +86,7 @@ export function CandidateList({ candidates: initial }: Props) {
         if (candidate?.item.sample_video_url && !candidate.item.cached_video_url) {
           setCachingVideoId(id);
           try {
-            await cacheVideoViaBrowser(candidate);
+            await cacheVideoViaProxy(candidate);
           } finally {
             setCachingVideoId(null);
           }
