@@ -5,6 +5,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/cache-videos",
+      "schedule": "30 6 * * *"
+    },
+    {
       "path": "/api/cron/score",
       "schedule": "0 7 * * *"
     },

@@ -22,6 +22,7 @@ export interface PostingAdapter {
 export interface PostOptions {
   post_mode?: "A" | "B";
   video_url?: string;
+  cached_video_url?: string;
   affiliate_url?: string;
 }
 
@@ -55,14 +56,16 @@ export class XPostingAdapter implements PostingAdapter {
     }
 
     const postMode = options?.post_mode || "A";
+    const cachedVideoUrl = options?.cached_video_url;
     const videoUrl = options?.video_url;
     const affiliateUrl = options?.affiliate_url;
 
-    // 動画がある場合はアップロード
+    // 動画がある場合はアップロード（キャッシュURLを優先）
     let mediaId: string | undefined;
-    if (videoUrl) {
-      console.log(`[XPostingAdapter] Downloading video: ${videoUrl}`);
-      const videoBuffer = await downloadVideo(videoUrl);
+    const effectiveVideoUrl = cachedVideoUrl || videoUrl;
+    if (effectiveVideoUrl) {
+      console.log(`[XPostingAdapter] Downloading video: ${effectiveVideoUrl}${cachedVideoUrl ? " (cached)" : ""}`);
+      const videoBuffer = await downloadVideo(effectiveVideoUrl);
       if (videoBuffer) {
         console.log(`[XPostingAdapter] Uploading video (${videoBuffer.length} bytes)`);
         const uploadResult = await uploadVideo(videoBuffer);

@@ -42,6 +42,7 @@ export interface AffiliateItem {
   tags: string[];
   thumbnail_url: string;
   sample_video_url: string;
+  cached_video_url?: string;
   affiliate_url: string;
   is_free_trial: boolean;
   popularity_score: number;

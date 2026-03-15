@@ -57,6 +57,7 @@ export async function GET(request: Request) {
         : "";
       const affiliateUrl = post.candidate?.item?.affiliate_url || "";
       const sampleVideoUrl = post.candidate?.item?.sample_video_url || "";
+      const cachedVideoUrl = post.candidate?.item?.cached_video_url || "";
       const postMode = post.post_mode || "A";
 
       // モードに応じてテキスト構成を変える
@@ -72,6 +73,7 @@ export async function GET(request: Request) {
       const result = await adapter.post(fullText, {
         post_mode: postMode as "A" | "B",
         video_url: sampleVideoUrl || undefined,
+        cached_video_url: cachedVideoUrl || undefined,
         affiliate_url: affiliateUrl || undefined,
       });
 

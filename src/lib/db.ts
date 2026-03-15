@@ -723,6 +723,36 @@ function mapScheduledPost(row: Record<string, unknown>): ScheduledPost {
   } as unknown as ScheduledPost;
 }
 
+// ==========================================
+// Video Cache
+// ==========================================
+
+/** sample_video_urlがあるがcached_video_urlがないアイテムを取得 */
+export async function getItemsNeedingVideoCache(limit: number = 10): Promise<AffiliateItem[]> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("affiliate_items")
+    .select("*")
+    .eq("is_excluded", false)
+    .not("sample_video_url", "is", null)
+    .not("sample_video_url", "eq", "")
+    .or("cached_video_url.is.null,cached_video_url.eq.")
+    .order("collected_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
+
+/** キャッシュ済み動画URLを更新 */
+export async function updateCachedVideoUrl(itemId: string, cachedUrl: string): Promise<void> {
+  const db = getAdminClient();
+  const { error } = await db
+    .from("affiliate_items")
+    .update({ cached_video_url: cachedUrl })
+    .eq("id", itemId);
+  if (error) throw error;
+}
+
 // カテゴリ別の平均CTRを取得（スコアリング用）
 export async function getCategoryAvgCtr(): Promise<Record<string, number>> {
   const db = getAdminClient();
