@@ -380,20 +380,45 @@ async function waitForProcessing(
 
 /**
  * URLから動画をダウンロードしてBufferとして返す
+ * FANZA CDN URLの場合、複数の品質パターンを試行する
  */
 export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
-  try {
-    const res = await fetch(videoUrl);
-    if (!res.ok) {
-      console.error(`[downloadVideo] Failed to download: ${res.status} ${videoUrl}`);
-      return null;
-    }
-    const arrayBuffer = await res.arrayBuffer();
-    return Buffer.from(arrayBuffer);
-  } catch (error) {
-    console.error(`[downloadVideo] Error: ${String(error)}`);
-    return null;
+  // FANZA CDN URLの場合、複数品質をフォールバック
+  const urls = [videoUrl];
+  if (videoUrl.includes("cc3001.dmm.co.jp") && videoUrl.includes("_mhb_w.mp4")) {
+    urls.push(
+      videoUrl.replace("_mhb_w.mp4", "_dmb_w.mp4"),
+      videoUrl.replace("_mhb_w.mp4", "_sm_w.mp4")
+    );
   }
+
+  for (const url of urls) {
+    try {
+      console.log(`[downloadVideo] Trying: ${url}`);
+      const res = await fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        },
+      });
+      if (!res.ok) {
+        console.log(`[downloadVideo] ${res.status} for ${url}`);
+        continue;
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("video") && !contentType.includes("octet-stream")) {
+        console.log(`[downloadVideo] Not a video (${contentType}): ${url}`);
+        continue;
+      }
+      const arrayBuffer = await res.arrayBuffer();
+      console.log(`[downloadVideo] Downloaded ${arrayBuffer.byteLength} bytes from ${url}`);
+      return Buffer.from(arrayBuffer);
+    } catch (error) {
+      console.error(`[downloadVideo] Error for ${url}: ${String(error)}`);
+    }
+  }
+
+  console.error(`[downloadVideo] All URLs failed for ${videoUrl}`);
+  return null;
 }
 
 export async function deleteTweet(tweetId: string): Promise<boolean> {

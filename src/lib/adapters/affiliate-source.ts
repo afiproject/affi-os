@@ -100,9 +100,10 @@ export class DMMAdapter implements AffiliateSourceAdapter {
         const tags = [...genres, ...actresses].slice(0, 10);
         const category = genres[0] || "動画";
 
-        // サンプル動画URL（高画質優先）
-        const sampleVideoUrl = item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306 || "";
-        const hasSample = !!sampleVideoUrl;
+        // サンプル動画の直接URL（CDNから取得用）
+        const contentId = item.content_id || item.product_id || "";
+        const sampleVideoUrl = contentId ? buildDmmVideoUrl(contentId) : "";
+        const hasSample = !!(item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306);
 
         // 人気スコア（レビュー数ベース）
         const reviewCount = item.review?.count || 0;
@@ -140,6 +141,19 @@ export class DMMAdapter implements AffiliateSourceAdapter {
       return [];
     }
   }
+}
+
+/**
+ * FANZA CDNの直接動画URLを構築する
+ * パターン: https://cc3001.dmm.co.jp/litevideo/freepv/{first_char}/{3_chars}/{cid}/{cid}_{quality}_w.mp4
+ */
+function buildDmmVideoUrl(contentId: string): string {
+  if (!contentId) return "";
+  const cid = contentId.toLowerCase();
+  const firstChar = cid[0];
+  const threeChars = cid.substring(0, 3);
+  // 高画質から順に試す（ダウンロード時にフォールバック）
+  return `https://cc3001.dmm.co.jp/litevideo/freepv/${firstChar}/${threeChars}/${cid}/${cid}_mhb_w.mp4`;
 }
 
 // ---------- Factory ----------
