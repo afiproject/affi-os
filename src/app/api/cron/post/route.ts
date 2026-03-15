@@ -12,7 +12,7 @@ import {
 
 export const maxDuration = 60;
 // 東京リージョンで実行（FANZA CDNの動画ダウンロードに必要）
-export const preferredRegion = "hnd1";
+export const preferredRegion = ["hnd1"];
 
 const MAX_RETRIES = 3;
 
@@ -74,11 +74,14 @@ export async function GET(request: Request) {
         fullText = `${bodyText}${hashtags}${affiliateUrl ? "\n" + affiliateUrl : ""}`;
       }
 
+      const thumbnailUrl = post.candidate?.item?.thumbnail_url || "";
+
       const result = await adapter.post(fullText, {
         post_mode: postMode as "A" | "B",
         video_url: sampleVideoUrl || undefined,
         cached_video_url: cachedVideoUrl || undefined,
         affiliate_url: affiliateUrl || undefined,
+        thumbnail_url: thumbnailUrl || undefined,
       });
 
       if (result.success && result.external_post_id) {

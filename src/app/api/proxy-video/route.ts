@@ -4,7 +4,7 @@ import { updateCachedVideoUrl } from "@/lib/db";
 
 export const maxDuration = 60;
 // 東京リージョンで実行（FANZA CDNの地域制限を回避）
-export const preferredRegion = "hnd1";
+export const preferredRegion = ["hnd1"];
 
 const BUCKET_NAME = "video-cache";
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024; // 50MB

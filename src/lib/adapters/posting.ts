@@ -3,7 +3,7 @@
 // 投稿先プラットフォームの抽象インターフェース
 // ========================================
 
-import { postTweet, deleteTweet, isXApiConfigured, uploadVideo, downloadVideo } from "@/lib/x-api";
+import { postTweet, deleteTweet, isXApiConfigured, uploadVideo, downloadVideo, uploadImageFromUrl } from "@/lib/x-api";
 
 export interface PostResult {
   success: boolean;
@@ -24,6 +24,7 @@ export interface PostOptions {
   video_url?: string;
   cached_video_url?: string;
   affiliate_url?: string;
+  thumbnail_url?: string;
 }
 
 // ---------- Demo Adapter ----------
@@ -59,6 +60,7 @@ export class XPostingAdapter implements PostingAdapter {
     const cachedVideoUrl = options?.cached_video_url;
     const videoUrl = options?.video_url;
     const affiliateUrl = options?.affiliate_url;
+    const thumbnailUrl = options?.thumbnail_url;
 
     // 動画がある場合はアップロード（キャッシュURLを優先）
     let mediaId: string | undefined;
@@ -74,8 +76,19 @@ export class XPostingAdapter implements PostingAdapter {
           console.log(`[XPostingAdapter] Video uploaded: media_id=${mediaId}`);
         } else {
           console.error(`[XPostingAdapter] Video upload failed: ${uploadResult.error}`);
-          // 動画アップロード失敗時はテキストのみで投稿
         }
+      }
+    }
+
+    // 動画が使えなかった場合、サムネ画像をフォールバックで添付
+    if (!mediaId && thumbnailUrl) {
+      console.log(`[XPostingAdapter] Video unavailable, using thumbnail: ${thumbnailUrl}`);
+      const imgResult = await uploadImageFromUrl(thumbnailUrl);
+      if (imgResult.success && imgResult.media_id) {
+        mediaId = imgResult.media_id;
+        console.log(`[XPostingAdapter] Thumbnail uploaded: media_id=${mediaId}`);
+      } else {
+        console.error(`[XPostingAdapter] Thumbnail upload failed: ${imgResult.error}`);
       }
     }
 

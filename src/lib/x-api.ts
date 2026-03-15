@@ -398,6 +398,8 @@ export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
       const res = await fetch(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Referer": "https://www.dmm.co.jp/",
+          "Accept": "*/*",
         },
       });
       if (!res.ok) {
@@ -421,6 +423,56 @@ export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
 
   console.error(`[downloadVideo] All URLs failed for ${videoUrl}`);
   return null;
+}
+
+/**
+ * 画像をURLからダウンロードしてX APIにアップロード
+ */
+export async function uploadImageFromUrl(imageUrl: string): Promise<MediaUploadResult> {
+  const config = getConfig();
+  if (!config) {
+    return { success: false, error: "X API credentials not configured" };
+  }
+
+  try {
+    console.log(`[uploadImage] Downloading: ${imageUrl}`);
+    const res = await fetch(imageUrl);
+    if (!res.ok) {
+      return { success: false, error: `Image download failed: ${res.status}` };
+    }
+    const arrayBuffer = await res.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString("base64");
+    console.log(`[uploadImage] Downloaded ${arrayBuffer.byteLength} bytes`);
+
+    // Simple image upload (not chunked)
+    const params: Record<string, string> = {
+      media_data: base64,
+      media_category: "tweet_image",
+    };
+    const authHeader = buildOAuthHeader("POST", MEDIA_UPLOAD_URL, config, {
+      media_category: "tweet_image",
+    });
+
+    const body = new URLSearchParams(params);
+    const uploadRes = await fetch(MEDIA_UPLOAD_URL, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: body.toString(),
+    });
+
+    const data = await uploadRes.json();
+    if (!uploadRes.ok) {
+      return { success: false, error: `Image upload error (${uploadRes.status}): ${JSON.stringify(data)}` };
+    }
+
+    console.log(`[uploadImage] Uploaded, media_id: ${data.media_id_string}`);
+    return { success: true, media_id: data.media_id_string };
+  } catch (error) {
+    return { success: false, error: `Image upload error: ${String(error)}` };
+  }
 }
 
 export async function deleteTweet(tweetId: string): Promise<boolean> {
