@@ -60,10 +60,10 @@ export async function GET(request: Request) {
       let bodySize = 0;
       try {
         const arrayBuffer = await res.arrayBuffer();
-        bodySize = arrayBuffer.length;
+        bodySize = arrayBuffer.byteLength;
         // テキストっぽいレスポンスの場合は内容表示
         if (!contentType.includes("video") && !contentType.includes("octet-stream")) {
-          const text = new TextDecoder().decode(arrayBuffer.slice(0, 500));
+          const text = new TextDecoder().decode(new Uint8Array(arrayBuffer).slice(0, 500));
           bodyPreview = text;
         }
       } catch (e) {
