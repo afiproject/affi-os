@@ -10,9 +10,58 @@ interface Props {
 
 type FilterStatus = "all" | "pending" | "approved" | "rejected";
 
+/**
+ * ブラウザで動画をダウンロードしてサーバーにアップロード（キャッシュ）
+ * ブラウザは日本にあるのでFANZA CDNにアクセス可能
+ */
+async function cacheVideoViaBrowser(
+  candidate: CandidatePost
+): Promise<string | null> {
+  const videoUrl = candidate.item.sample_video_url;
+  if (!videoUrl || candidate.item.cached_video_url) {
+    // 動画がないか、すでにキャッシュ済み
+    return candidate.item.cached_video_url || null;
+  }
+
+  try {
+    console.log(`[cacheVideo] Downloading: ${videoUrl}`);
+    const res = await fetch(videoUrl);
+    if (!res.ok) {
+      console.warn(`[cacheVideo] Download failed (${res.status}): ${videoUrl}`);
+      return null;
+    }
+    const blob = await res.blob();
+    console.log(`[cacheVideo] Downloaded ${blob.size} bytes`);
+
+    // サーバーのキャッシュAPIにアップロード
+    const formData = new FormData();
+    formData.append("item_id", candidate.item.id);
+    formData.append("external_id", candidate.item.external_id);
+    formData.append("video", blob, `${candidate.item.external_id}.mp4`);
+
+    const uploadRes = await fetch("/api/cache-video", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!uploadRes.ok) {
+      console.warn(`[cacheVideo] Upload failed: ${await uploadRes.text()}`);
+      return null;
+    }
+
+    const data = await uploadRes.json();
+    console.log(`[cacheVideo] Cached: ${data.cached_video_url}`);
+    return data.cached_video_url;
+  } catch (error) {
+    console.warn(`[cacheVideo] Error: ${String(error)}`);
+    return null;
+  }
+}
+
 export function CandidateList({ candidates: initial }: Props) {
   const [candidates, setCandidates] = useState(initial);
   const [filter, setFilter] = useState<FilterStatus>("all");
+  const [cachingVideoId, setCachingVideoId] = useState<string | null>(null);
 
   const filtered =
     filter === "all" ? candidates : candidates.filter((c) => c.status === filter);
@@ -40,6 +89,19 @@ export function CandidateList({ candidates: initial }: Props) {
     );
 
     try {
+      // 承認時: まず動画をブラウザ経由でキャッシュ
+      if (action === "approved") {
+        const candidate = candidates.find((c) => c.id === id);
+        if (candidate?.item.sample_video_url && !candidate.item.cached_video_url) {
+          setCachingVideoId(id);
+          try {
+            await cacheVideoViaBrowser(candidate);
+          } finally {
+            setCachingVideoId(null);
+          }
+        }
+      }
+
       // Persist status to DB
       const statusRes = await fetch("/api/candidates", {
         method: "POST",
@@ -132,6 +194,7 @@ export function CandidateList({ candidates: initial }: Props) {
             key={candidate.id}
             candidate={candidate}
             onAction={handleAction}
+            isCachingVideo={cachingVideoId === candidate.id}
           />
         ))}
       </div>

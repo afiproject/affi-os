@@ -45,9 +45,10 @@ interface Props {
       scheduled_at?: string;
     }
   ) => void;
+  isCachingVideo?: boolean;
 }
 
-export function CandidateCard({ candidate, onAction }: Props) {
+export function CandidateCard({ candidate, onAction, isCachingVideo }: Props) {
   const selectedVariant = candidate.variants.find((v) => v.is_selected) || candidate.variants[0];
   const [postMode, setPostMode] = useState<"A" | "B">("A");
   const [useCustomText, setUseCustomText] = useState(false);
@@ -346,9 +347,17 @@ export function CandidateCard({ candidate, onAction }: Props) {
           </div>
         )}
 
+        {/* 動画キャッシュ中の表示 */}
+        {isCachingVideo && (
+          <div className="flex items-center gap-2 p-3 rounded-md border border-blue-200 bg-blue-50/50 text-blue-800">
+            <RefreshCw className="w-4 h-4 animate-spin" />
+            <span className="text-xs">動画をキャッシュ中...</span>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex items-center gap-2 mt-auto pt-2 border-t">
-          {candidate.status === "pending" && !showApproveForm && (
+          {candidate.status === "pending" && !showApproveForm && !isCachingVideo && (
             <>
               <Button
                 size="sm"
