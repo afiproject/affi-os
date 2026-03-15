@@ -62,10 +62,15 @@ export class DMMAdapter implements AffiliateSourceAdapter {
     }
 
     const hits = options?.limit || 20;
-    let sort = "date";
-    if (options?.sortBy === "popular" || options?.sortBy === "ranking") {
-      sort = "rank";
-    }
+
+    // ソート方法をランダムに変える（多様な候補を収集）
+    const sortOptions = ["date", "rank", "review"];
+    const sort = options?.sortBy === "popular" || options?.sortBy === "ranking"
+      ? "rank"
+      : sortOptions[Math.floor(Math.random() * sortOptions.length)];
+
+    // ページもランダムにずらす（1〜5ページ目）
+    const offset = Math.floor(Math.random() * 5) * hits + 1;
 
     const params = new URLSearchParams({
       api_id: this.apiId,
@@ -75,6 +80,7 @@ export class DMMAdapter implements AffiliateSourceAdapter {
       floor: "videoa",
       hits: String(hits),
       sort,
+      offset: String(offset),
       output: "json",
     });
 
@@ -82,6 +88,7 @@ export class DMMAdapter implements AffiliateSourceAdapter {
       params.set("keyword", options.category);
     }
 
+    console.log(`[DMMAdapter] Fetching: sort=${sort}, offset=${offset}, hits=${hits}`);
     const url = `https://api.dmm.com/affiliate/v3/ItemList?${params.toString()}`;
 
     try {
