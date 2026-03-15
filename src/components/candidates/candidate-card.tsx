@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { CandidatePost } from "@/types";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,15 +23,32 @@ import {
   AlertTriangle,
   Clock,
   Star,
+  Film,
 } from "lucide-react";
 
 interface Props {
   candidate: CandidatePost;
-  onAction: (id: string, action: "approved" | "rejected" | "regenerate_requested") => void;
+  onAction: (
+    id: string,
+    action: "approved" | "rejected" | "regenerate_requested",
+    options?: { post_mode?: "A" | "B"; custom_body_text?: string }
+  ) => void;
 }
 
 export function CandidateCard({ candidate, onAction }: Props) {
   const selectedVariant = candidate.variants.find((v) => v.is_selected) || candidate.variants[0];
+  const [postMode, setPostMode] = useState<"A" | "B">("A");
+  const [useCustomText, setUseCustomText] = useState(false);
+  const [customText, setCustomText] = useState("");
+  const [showApproveForm, setShowApproveForm] = useState(false);
+
+  const handleApprove = () => {
+    onAction(candidate.id, "approved", {
+      post_mode: postMode,
+      custom_body_text: useCustomText && customText.trim() ? customText.trim() : undefined,
+    });
+    setShowApproveForm(false);
+  };
 
   return (
     <Card className="flex flex-col">
@@ -42,6 +61,11 @@ export function CandidateCard({ candidate, onAction }: Props) {
               </Badge>
               {candidate.item.is_free_trial && (
                 <Badge variant="success" className="text-[10px]">無料</Badge>
+              )}
+              {candidate.item.sample_video_url && (
+                <Badge variant="outline" className="text-[10px]">
+                  <Film className="w-2.5 h-2.5 mr-0.5" />動画
+                </Badge>
               )}
               <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(candidate.status)}`}>
                 {getStatusLabel(candidate.status)}
@@ -61,6 +85,19 @@ export function CandidateCard({ candidate, onAction }: Props) {
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col gap-3">
+        {/* サムネイル表示 */}
+        {candidate.item.thumbnail_url && (
+          <div className="relative w-full aspect-video rounded-md overflow-hidden bg-secondary">
+            <Image
+              src={candidate.item.thumbnail_url}
+              alt={candidate.item.title}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          </div>
+        )}
+
         {/* Recommendation reason */}
         <p className="text-xs text-muted-foreground leading-relaxed">
           {candidate.recommendation_reason}
@@ -122,15 +159,97 @@ export function CandidateCard({ candidate, onAction }: Props) {
           ))}
         </div>
 
+        {/* 承認フォーム（展開時） */}
+        {showApproveForm && candidate.status === "pending" && (
+          <div className="space-y-3 p-3 rounded-md border border-green-200 bg-green-50/50">
+            {/* 投稿モード選択 */}
+            <div>
+              <label className="text-xs font-medium mb-1 block">投稿モード</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setPostMode("A")}
+                  className={`flex-1 text-[11px] p-2 rounded border text-left ${
+                    postMode === "A"
+                      ? "border-green-500 bg-green-50 text-green-800"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="font-medium">A: 1ツイート</div>
+                  <div className="text-muted-foreground mt-0.5">動画+テキスト+リンク</div>
+                </button>
+                <button
+                  onClick={() => setPostMode("B")}
+                  className={`flex-1 text-[11px] p-2 rounded border text-left ${
+                    postMode === "B"
+                      ? "border-blue-500 bg-blue-50 text-blue-800"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="font-medium">B: リプライ</div>
+                  <div className="text-muted-foreground mt-0.5">動画+テキスト → リプにリンク</div>
+                </button>
+              </div>
+            </div>
+
+            {/* テキスト編集 */}
+            <div>
+              <label className="text-xs font-medium mb-1 block">投稿テキスト</label>
+              <div className="flex gap-2 mb-1">
+                <button
+                  onClick={() => setUseCustomText(false)}
+                  className={`text-[11px] px-2 py-1 rounded ${
+                    !useCustomText ? "bg-primary text-primary-foreground" : "bg-secondary"
+                  }`}
+                >
+                  AI生成を使う
+                </button>
+                <button
+                  onClick={() => {
+                    setUseCustomText(true);
+                    if (!customText && selectedVariant) {
+                      setCustomText(selectedVariant.body_text);
+                    }
+                  }}
+                  className={`text-[11px] px-2 py-1 rounded ${
+                    useCustomText ? "bg-primary text-primary-foreground" : "bg-secondary"
+                  }`}
+                >
+                  自分で入力
+                </button>
+              </div>
+              {useCustomText && (
+                <textarea
+                  value={customText}
+                  onChange={(e) => setCustomText(e.target.value)}
+                  placeholder="投稿テキストを入力..."
+                  className="w-full text-xs p-2 rounded border resize-none h-24 focus:outline-none focus:ring-1 focus:ring-primary"
+                  maxLength={280}
+                />
+              )}
+            </div>
+
+            {/* 承認/キャンセルボタン */}
+            <div className="flex gap-2">
+              <Button size="sm" variant="success" className="flex-1" onClick={handleApprove}>
+                <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                投稿を確定
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setShowApproveForm(false)}>
+                キャンセル
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex items-center gap-2 mt-auto pt-2 border-t">
-          {candidate.status === "pending" && (
+          {candidate.status === "pending" && !showApproveForm && (
             <>
               <Button
                 size="sm"
                 variant="success"
                 className="flex-1"
-                onClick={() => onAction(candidate.id, "approved")}
+                onClick={() => setShowApproveForm(true)}
               >
                 <CheckCircle className="w-3.5 h-3.5 mr-1" />
                 採用

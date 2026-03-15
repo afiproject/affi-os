@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS affiliate_items (
   category TEXT NOT NULL DEFAULT '',
   tags TEXT[] NOT NULL DEFAULT '{}',
   thumbnail_url TEXT NOT NULL DEFAULT '',
+  sample_video_url TEXT NOT NULL DEFAULT '',
   affiliate_url TEXT NOT NULL,
   is_free_trial BOOLEAN NOT NULL DEFAULT false,
   popularity_score INTEGER NOT NULL DEFAULT 0,
@@ -108,9 +109,12 @@ CREATE TABLE IF NOT EXISTS scheduled_posts (
   scheduled_at TIMESTAMPTZ NOT NULL,
   posted_at TIMESTAMPTZ,
   status TEXT NOT NULL DEFAULT 'scheduled',   -- scheduled, pending_approval, posted, failed, paused, cancelled
+  post_mode TEXT NOT NULL DEFAULT 'A',          -- A: 動画+テキスト+リンク1ツイート, B: 動画+テキスト→リプライにリンク
+  custom_body_text TEXT,                        -- ユーザーが手入力した文面（NULLならAI生成を使用）
   retry_count INTEGER NOT NULL DEFAULT 0,
   error_message TEXT,
   external_post_id TEXT,
+  reply_post_id TEXT,                           -- モードB時のリプライツイートID
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

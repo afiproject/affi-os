@@ -3,11 +3,12 @@
 // 投稿先プラットフォームの抽象インターフェース
 // ========================================
 
-import { postTweet, deleteTweet, isXApiConfigured } from "@/lib/x-api";
+import { postTweet, deleteTweet, isXApiConfigured, uploadVideo, downloadVideo } from "@/lib/x-api";
 
 export interface PostResult {
   success: boolean;
   external_post_id?: string;
+  reply_post_id?: string;
   error_message?: string;
   posted_at: string;
 }
@@ -19,8 +20,9 @@ export interface PostingAdapter {
 }
 
 export interface PostOptions {
-  media_urls?: string[];
-  scheduled_at?: string;
+  post_mode?: "A" | "B";
+  video_url?: string;
+  affiliate_url?: string;
 }
 
 // ---------- Demo Adapter ----------
@@ -46,27 +48,75 @@ export class DemoPostingAdapter implements PostingAdapter {
 export class XPostingAdapter implements PostingAdapter {
   readonly platform = "x";
 
-  async post(text: string): Promise<PostResult> {
+  async post(text: string, options?: PostOptions): Promise<PostResult> {
     if (!isXApiConfigured()) {
       console.warn("X API key not configured, using demo mode");
       return new DemoPostingAdapter().post(text);
     }
 
-    const result = await postTweet(text);
+    const postMode = options?.post_mode || "A";
+    const videoUrl = options?.video_url;
+    const affiliateUrl = options?.affiliate_url;
 
-    if (result.success) {
+    // 動画がある場合はアップロード
+    let mediaId: string | undefined;
+    if (videoUrl) {
+      console.log(`[XPostingAdapter] Downloading video: ${videoUrl}`);
+      const videoBuffer = await downloadVideo(videoUrl);
+      if (videoBuffer) {
+        console.log(`[XPostingAdapter] Uploading video (${videoBuffer.length} bytes)`);
+        const uploadResult = await uploadVideo(videoBuffer);
+        if (uploadResult.success && uploadResult.media_id) {
+          mediaId = uploadResult.media_id;
+          console.log(`[XPostingAdapter] Video uploaded: media_id=${mediaId}`);
+        } else {
+          console.error(`[XPostingAdapter] Video upload failed: ${uploadResult.error}`);
+          // 動画アップロード失敗時はテキストのみで投稿
+        }
+      }
+    }
+
+    if (postMode === "B" && affiliateUrl) {
+      // モードB: 動画+テキスト → リプライにリンク
+      const mainResult = await postTweet(text, { media_id: mediaId });
+
+      if (!mainResult.success || !mainResult.tweet_id) {
+        return {
+          success: false,
+          error_message: mainResult.error,
+          posted_at: new Date().toISOString(),
+        };
+      }
+
+      // リプライにアフィリエイトリンクを投稿
+      const replyResult = await postTweet(affiliateUrl, {
+        reply_to_tweet_id: mainResult.tweet_id,
+      });
+
       return {
         success: true,
-        external_post_id: result.tweet_id,
+        external_post_id: mainResult.tweet_id,
+        reply_post_id: replyResult.success ? replyResult.tweet_id : undefined,
+        posted_at: new Date().toISOString(),
+      };
+    } else {
+      // モードA: 動画+テキスト+リンクを1ツイート
+      const result = await postTweet(text, { media_id: mediaId });
+
+      if (result.success) {
+        return {
+          success: true,
+          external_post_id: result.tweet_id,
+          posted_at: new Date().toISOString(),
+        };
+      }
+
+      return {
+        success: false,
+        error_message: result.error,
         posted_at: new Date().toISOString(),
       };
     }
-
-    return {
-      success: false,
-      error_message: result.error,
-      posted_at: new Date().toISOString(),
-    };
   }
 
   async deletePost(externalId: string): Promise<boolean> {

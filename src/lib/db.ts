@@ -51,6 +51,7 @@ export async function upsertItems(items: Omit<AffiliateItem, "id" | "collected_a
     category: item.category,
     tags: item.tags,
     thumbnail_url: item.thumbnail_url,
+    sample_video_url: item.sample_video_url,
     affiliate_url: item.affiliate_url,
     is_free_trial: item.is_free_trial,
     popularity_score: item.popularity_score,
@@ -315,6 +316,8 @@ export async function createScheduledPost(post: {
   account_id: string;
   variant_id: string;
   scheduled_at: string;
+  post_mode?: string;
+  custom_body_text?: string;
 }): Promise<string> {
   const db = getAdminClient();
   const { data, error } = await db
@@ -325,6 +328,8 @@ export async function createScheduledPost(post: {
       variant_id: post.variant_id,
       scheduled_at: post.scheduled_at,
       status: "scheduled",
+      post_mode: post.post_mode || "A",
+      custom_body_text: post.custom_body_text || null,
     })
     .select("id")
     .single();
@@ -338,6 +343,7 @@ export async function updateScheduledPostStatus(
     status: string;
     posted_at?: string;
     external_post_id?: string;
+    reply_post_id?: string;
     error_message?: string;
     retry_count?: number;
   }

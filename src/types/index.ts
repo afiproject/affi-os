@@ -41,6 +41,7 @@ export interface AffiliateItem {
   category: string;
   tags: string[];
   thumbnail_url: string;
+  sample_video_url: string;
   affiliate_url: string;
   is_free_trial: boolean;
   popularity_score: number;
@@ -120,9 +121,12 @@ export interface ScheduledPost {
   scheduled_at: string;
   posted_at?: string;
   status: ScheduleStatus;
+  post_mode: "A" | "B";
+  custom_body_text?: string;
   retry_count: number;
   error_message?: string;
   external_post_id?: string;
+  reply_post_id?: string;
   created_at: string;
   updated_at: string;
 }

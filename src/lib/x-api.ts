@@ -105,15 +105,30 @@ export interface TweetResult {
   error?: string;
 }
 
-export async function postTweet(text: string): Promise<TweetResult> {
+export interface TweetOptions {
+  media_id?: string;
+  reply_to_tweet_id?: string;
+}
+
+export async function postTweet(text: string, options?: TweetOptions): Promise<TweetResult> {
   const config = getConfig();
   if (!config) {
     return { success: false, error: "X API credentials not configured" };
   }
 
   const url = "https://api.twitter.com/2/tweets";
-  const body = JSON.stringify({ text });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const payload: Record<string, any> = { text };
 
+  if (options?.media_id) {
+    payload.media = { media_ids: [options.media_id] };
+  }
+
+  if (options?.reply_to_tweet_id) {
+    payload.reply = { in_reply_to_tweet_id: options.reply_to_tweet_id };
+  }
+
+  const body = JSON.stringify(payload);
   const authHeader = buildOAuthHeader("POST", url, config);
 
   try {
@@ -139,6 +154,245 @@ export async function postTweet(text: string): Promise<TweetResult> {
     };
   } catch (error) {
     return { success: false, error: `Network error: ${String(error)}` };
+  }
+}
+
+// ==========================================
+// Media Upload (v1.1 chunked upload)
+// ==========================================
+
+const MEDIA_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json";
+const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+
+export interface MediaUploadResult {
+  success: boolean;
+  media_id?: string;
+  error?: string;
+}
+
+/**
+ * 動画ファイルをX APIにアップロード（chunked upload）
+ * @param videoBuffer 動画のバイナリデータ
+ * @param mimeType MIMEタイプ（default: video/mp4）
+ */
+export async function uploadVideo(
+  videoBuffer: Buffer,
+  mimeType: string = "video/mp4"
+): Promise<MediaUploadResult> {
+  const config = getConfig();
+  if (!config) {
+    return { success: false, error: "X API credentials not configured" };
+  }
+
+  try {
+    // Step 1: INIT
+    const initResult = await mediaUploadInit(config, videoBuffer.length, mimeType);
+    if (!initResult.success || !initResult.media_id) {
+      return { success: false, error: initResult.error || "INIT failed" };
+    }
+    const mediaId = initResult.media_id;
+
+    // Step 2: APPEND (chunked)
+    for (let i = 0; i < videoBuffer.length; i += CHUNK_SIZE) {
+      const chunk = videoBuffer.subarray(i, Math.min(i + CHUNK_SIZE, videoBuffer.length));
+      const segmentIndex = Math.floor(i / CHUNK_SIZE);
+      const appendResult = await mediaUploadAppend(config, mediaId, chunk, segmentIndex);
+      if (!appendResult.success) {
+        return { success: false, error: appendResult.error || `APPEND segment ${segmentIndex} failed` };
+      }
+    }
+
+    // Step 3: FINALIZE
+    const finalizeResult = await mediaUploadFinalize(config, mediaId);
+    if (!finalizeResult.success) {
+      return { success: false, error: finalizeResult.error || "FINALIZE failed" };
+    }
+
+    // Step 4: Check processing status (動画は非同期処理)
+    if (finalizeResult.processing) {
+      const statusResult = await waitForProcessing(config, mediaId);
+      if (!statusResult.success) {
+        return { success: false, error: statusResult.error || "Processing failed" };
+      }
+    }
+
+    return { success: true, media_id: mediaId };
+  } catch (error) {
+    return { success: false, error: `Media upload error: ${String(error)}` };
+  }
+}
+
+async function mediaUploadInit(
+  config: XApiConfig,
+  totalBytes: number,
+  mimeType: string
+): Promise<{ success: boolean; media_id?: string; error?: string }> {
+  const params: Record<string, string> = {
+    command: "INIT",
+    total_bytes: String(totalBytes),
+    media_type: mimeType,
+    media_category: "tweet_video",
+  };
+
+  const authHeader = buildOAuthHeader("POST", MEDIA_UPLOAD_URL, config, params);
+
+  const body = new URLSearchParams(params);
+  const res = await fetch(MEDIA_UPLOAD_URL, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    return { success: false, error: `INIT error (${res.status}): ${JSON.stringify(data)}` };
+  }
+
+  return { success: true, media_id: data.media_id_string };
+}
+
+async function mediaUploadAppend(
+  config: XApiConfig,
+  mediaId: string,
+  chunk: Buffer,
+  segmentIndex: number
+): Promise<{ success: boolean; error?: string }> {
+  // APPEND uses multipart/form-data — OAuth signs only the URL params
+  const oauthParams: Record<string, string> = {
+    command: "APPEND",
+    media_id: mediaId,
+    segment_index: String(segmentIndex),
+  };
+
+  const authHeader = buildOAuthHeader("POST", MEDIA_UPLOAD_URL, config, oauthParams);
+
+  // Build multipart form
+  const boundary = `----boundary${Date.now()}`;
+  const parts: Buffer[] = [];
+
+  // command field
+  parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="command"\r\n\r\nAPPEND\r\n`));
+  // media_id field
+  parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="media_id"\r\n\r\n${mediaId}\r\n`));
+  // segment_index field
+  parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="segment_index"\r\n\r\n${segmentIndex}\r\n`));
+  // media_data field (binary)
+  parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="media_data"\r\n\r\n`));
+  parts.push(Buffer.from(chunk.toString("base64")));
+  parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
+
+  const bodyBuffer = Buffer.concat(parts);
+
+  const res = await fetch(MEDIA_UPLOAD_URL, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader,
+      "Content-Type": `multipart/form-data; boundary=${boundary}`,
+    },
+    body: bodyBuffer,
+  });
+
+  if (!res.ok && res.status !== 204) {
+    const text = await res.text();
+    return { success: false, error: `APPEND error (${res.status}): ${text}` };
+  }
+
+  return { success: true };
+}
+
+async function mediaUploadFinalize(
+  config: XApiConfig,
+  mediaId: string
+): Promise<{ success: boolean; processing?: boolean; error?: string }> {
+  const params: Record<string, string> = {
+    command: "FINALIZE",
+    media_id: mediaId,
+  };
+
+  const authHeader = buildOAuthHeader("POST", MEDIA_UPLOAD_URL, config, params);
+
+  const body = new URLSearchParams(params);
+  const res = await fetch(MEDIA_UPLOAD_URL, {
+    method: "POST",
+    headers: {
+      Authorization: authHeader,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: body.toString(),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    return { success: false, error: `FINALIZE error (${res.status}): ${JSON.stringify(data)}` };
+  }
+
+  // 動画の場合 processing_info が返る
+  const processing = !!data.processing_info;
+  return { success: true, processing };
+}
+
+async function waitForProcessing(
+  config: XApiConfig,
+  mediaId: string,
+  maxWaitMs: number = 120000
+): Promise<{ success: boolean; error?: string }> {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < maxWaitMs) {
+    const params: Record<string, string> = {
+      command: "STATUS",
+      media_id: mediaId,
+    };
+
+    const url = `${MEDIA_UPLOAD_URL}?command=STATUS&media_id=${mediaId}`;
+    const authHeader = buildOAuthHeader("GET", MEDIA_UPLOAD_URL, config, params);
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: { Authorization: authHeader },
+    });
+
+    if (!res.ok) {
+      return { success: false, error: `STATUS check failed (${res.status})` };
+    }
+
+    const data = await res.json();
+    const state = data.processing_info?.state;
+
+    if (state === "succeeded") {
+      return { success: true };
+    }
+    if (state === "failed") {
+      const errorMsg = data.processing_info?.error?.message || "Video processing failed";
+      return { success: false, error: errorMsg };
+    }
+
+    // Wait before next check
+    const waitSecs = data.processing_info?.check_after_secs || 5;
+    await new Promise((r) => setTimeout(r, waitSecs * 1000));
+  }
+
+  return { success: false, error: "Video processing timeout" };
+}
+
+/**
+ * URLから動画をダウンロードしてBufferとして返す
+ */
+export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
+  try {
+    const res = await fetch(videoUrl);
+    if (!res.ok) {
+      console.error(`[downloadVideo] Failed to download: ${res.status} ${videoUrl}`);
+      return null;
+    }
+    const arrayBuffer = await res.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } catch (error) {
+    console.error(`[downloadVideo] Error: ${String(error)}`);
+    return null;
   }
 }
 

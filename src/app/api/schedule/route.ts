@@ -23,7 +23,7 @@ export async function GET() {
 // POST /api/schedule — 予約登録
 export async function POST(request: Request) {
   const body = await request.json();
-  const { candidate_id, account_id, variant_id, scheduled_at } = body;
+  const { candidate_id, account_id, variant_id, scheduled_at, post_mode, custom_body_text } = body;
 
   if (!candidate_id || !variant_id || !scheduled_at) {
     return NextResponse.json(
@@ -52,6 +52,8 @@ export async function POST(request: Request) {
       account_id: account_id || "",
       variant_id,
       scheduled_at,
+      post_mode: post_mode || "A",
+      custom_body_text: custom_body_text || undefined,
     });
 
     // 候補のステータスをapprovedに更新

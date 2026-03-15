@@ -24,7 +24,11 @@ export function CandidateList({ candidates: initial }: Props) {
     rejected: candidates.filter((c) => c.status === "rejected").length,
   };
 
-  async function handleAction(id: string, action: "approved" | "rejected" | "regenerate_requested") {
+  async function handleAction(
+    id: string,
+    action: "approved" | "rejected" | "regenerate_requested",
+    options?: { post_mode?: "A" | "B"; custom_body_text?: string }
+  ) {
     // Update UI immediately
     setCandidates((prev) =>
       prev.map((c) => (c.id === id ? { ...c, status: action } : c))
@@ -55,6 +59,8 @@ export function CandidateList({ candidates: initial }: Props) {
                     new Date().toDateString() + " " + candidate.recommended_time
                   ).toISOString()
                 : new Date(Date.now() + 3600000).toISOString(),
+              post_mode: options?.post_mode || "A",
+              custom_body_text: options?.custom_body_text,
             }),
           });
         }

@@ -50,15 +50,30 @@ export async function GET(request: Request) {
         continue;
       }
 
-      // 投稿文にアフィリエイトURLを追加
-      const bodyText = post.variant.body_text;
+      // カスタムテキストがあればそれを使う、なければAI生成テキスト
+      const bodyText = post.custom_body_text || post.variant.body_text;
       const hashtags = post.variant.hashtags?.length
         ? "\n" + post.variant.hashtags.join(" ")
         : "";
       const affiliateUrl = post.candidate?.item?.affiliate_url || "";
-      const fullText = `${bodyText}${hashtags}${affiliateUrl ? "\n" + affiliateUrl : ""}`;
+      const sampleVideoUrl = post.candidate?.item?.sample_video_url || "";
+      const postMode = post.post_mode || "A";
 
-      const result = await adapter.post(fullText);
+      // モードに応じてテキスト構成を変える
+      let fullText: string;
+      if (postMode === "B") {
+        // モードB: メインツイートにはリンクを含めない
+        fullText = `${bodyText}${hashtags}`;
+      } else {
+        // モードA: すべてを1ツイートに
+        fullText = `${bodyText}${hashtags}${affiliateUrl ? "\n" + affiliateUrl : ""}`;
+      }
+
+      const result = await adapter.post(fullText, {
+        post_mode: postMode as "A" | "B",
+        video_url: sampleVideoUrl || undefined,
+        affiliate_url: affiliateUrl || undefined,
+      });
 
       if (result.success && result.external_post_id) {
         postedCount++;
@@ -68,6 +83,7 @@ export async function GET(request: Request) {
           status: "posted",
           posted_at: result.posted_at,
           external_post_id: result.external_post_id,
+          reply_post_id: result.reply_post_id,
         });
 
         // 投稿ログを記録

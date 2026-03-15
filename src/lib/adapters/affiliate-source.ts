@@ -100,8 +100,9 @@ export class DMMAdapter implements AffiliateSourceAdapter {
         const tags = [...genres, ...actresses].slice(0, 10);
         const category = genres[0] || "動画";
 
-        // サンプル動画の有無
-        const hasSample = !!(item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306);
+        // サンプル動画URL（高画質優先）
+        const sampleVideoUrl = item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306 || "";
+        const hasSample = !!sampleVideoUrl;
 
         // 人気スコア（レビュー数ベース）
         const reviewCount = item.review?.count || 0;
@@ -122,6 +123,7 @@ export class DMMAdapter implements AffiliateSourceAdapter {
           category,
           tags,
           thumbnail_url: item.imageURL?.large || item.imageURL?.small || "",
+          sample_video_url: sampleVideoUrl,
           affiliate_url: item.affiliateURL || "",
           is_free_trial: hasSample,
           popularity_score: popularityScore,
