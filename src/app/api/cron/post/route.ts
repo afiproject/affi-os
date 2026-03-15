@@ -11,6 +11,8 @@ import {
 } from "@/lib/db";
 
 export const maxDuration = 60;
+// 東京リージョンで実行（FANZA CDNの動画ダウンロードに必要）
+export const preferredRegion = "hnd1";
 
 const MAX_RETRIES = 3;
 

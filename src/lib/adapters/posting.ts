@@ -62,12 +62,7 @@ export class XPostingAdapter implements PostingAdapter {
 
     // 動画がある場合はアップロード（キャッシュURLを優先）
     let mediaId: string | undefined;
-    // FANZA CDN URLはVercel(US)からアクセス不可（地域制限）なのでスキップ
-    const isGeoBlocked = videoUrl && videoUrl.includes("dmm.co.jp") && !cachedVideoUrl;
-    const effectiveVideoUrl = cachedVideoUrl || (isGeoBlocked ? undefined : videoUrl);
-    if (isGeoBlocked) {
-      console.log(`[XPostingAdapter] Skipping geo-blocked video URL, posting text-only`);
-    }
+    const effectiveVideoUrl = cachedVideoUrl || videoUrl;
     if (effectiveVideoUrl) {
       console.log(`[XPostingAdapter] Downloading video: ${effectiveVideoUrl}${cachedVideoUrl ? " (cached)" : ""}`);
       const videoBuffer = await downloadVideo(effectiveVideoUrl);
