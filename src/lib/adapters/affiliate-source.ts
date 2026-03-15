@@ -100,10 +100,14 @@ export class DMMAdapter implements AffiliateSourceAdapter {
         const tags = [...genres, ...actresses].slice(0, 10);
         const category = genres[0] || "動画";
 
-        // サンプル動画の直接URL（CDNから取得用）
+        // サンプル動画URL（DMM APIのURLを優先、なければCDN URLを構築）
         const contentId = item.content_id || item.product_id || "";
-        const sampleVideoUrl = contentId ? buildDmmVideoUrl(contentId) : "";
+        const apiVideoUrl = item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306 || "";
+        const sampleVideoUrl = apiVideoUrl || (contentId ? buildDmmVideoUrl(contentId) : "");
         const hasSample = !!(item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306);
+        if (apiVideoUrl) {
+          console.log(`[DMMAdapter] API video URL for ${contentId}: ${apiVideoUrl}`);
+        }
 
         // 人気スコア（レビュー数ベース）
         const reviewCount = item.review?.count || 0;
