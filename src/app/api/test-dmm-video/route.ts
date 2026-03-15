@@ -5,8 +5,7 @@ export const maxDuration = 30;
 
 /**
  * GET /api/test-dmm-video
- * DMM APIのsampleMovieURL形式を確認し、動画ダウンロードをテスト
- * サンプル動画がある非VR作品で検証
+ * DMM APIのプレイヤーページHTMLから実際の動画URLを抽出してテスト
  */
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -27,96 +26,93 @@ export async function GET(request: Request) {
     const res = await fetch(url);
     const data = await res.json();
 
-    // サンプル動画があるアイテムを優先
     const items = data.result?.items || [];
     const itemWithSample = items.find(
       (i: Record<string, unknown>) => {
         const sm = i.sampleMovieURL as Record<string, string> | undefined;
         return sm && (sm.size_720_480 || sm.size_476_306);
       }
-    ) || items[0];
+    );
 
     if (!itemWithSample) {
-      return NextResponse.json({ error: "No items found" }, { status: 404 });
+      return NextResponse.json({ error: "No items with sample video found" }, { status: 404 });
     }
 
     const item = itemWithSample;
     const contentId = item.content_id || item.product_id || "";
-    const cid = contentId.toLowerCase();
-
-    // DMM APIが返すsampleMovieURL全体を記録
     const sampleMovieURL = item.sampleMovieURL || {};
 
-    // CDN URLの構築
-    const firstChar = cid[0];
-    const threeChars = cid.substring(0, 3);
-    const cdnUrls = [
-      `https://cc3001.dmm.co.jp/litevideo/freepv/${firstChar}/${threeChars}/${cid}/${cid}_mhb_w.mp4`,
-      `https://cc3001.dmm.co.jp/litevideo/freepv/${firstChar}/${threeChars}/${cid}/${cid}_dmb_w.mp4`,
-      `https://cc3001.dmm.co.jp/litevideo/freepv/${firstChar}/${threeChars}/${cid}/${cid}_sm_w.mp4`,
-    ];
+    // プレイヤーページのHTMLを取得して動画URLを抽出
+    const playerUrl = sampleMovieURL.size_720_480 || sampleMovieURL.size_476_306;
+    let playerHtml = "";
+    let extractedVideoUrls: string[] = [];
 
-    // 全URLをテスト
-    const results: Record<string, { status: number; contentType: string; contentLength?: string }> = {};
+    if (playerUrl) {
+      const playerRes = await fetch(playerUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        },
+      });
+      playerHtml = await playerRes.text();
 
-    // APIのURLをテスト
-    for (const [key, value] of Object.entries(sampleMovieURL)) {
-      if (typeof value === "string" && value.startsWith("http")) {
-        try {
-          const r = await fetch(value, { method: "HEAD" });
-          results[`api_${key}`] = {
-            status: r.status,
-            contentType: r.headers.get("content-type") || "",
-            contentLength: r.headers.get("content-length") || "",
-          };
-        } catch (e) {
-          results[`api_${key}`] = { status: 0, contentType: String(e) };
-        }
-      }
+      // HTMLから.mp4 URLを抽出（src="...mp4", URL直接記載など）
+      const mp4Matches = playerHtml.match(/https?:\/\/[^"'\s<>]+\.mp4[^"'\s<>]*/g) || [];
+      extractedVideoUrls = [...new Set(mp4Matches)];
     }
 
-    // CDN URLをテスト（Refererヘッダー付き）
-    for (const cdnUrl of cdnUrls) {
+    // 抽出したURLをテスト
+    const videoTestResults: Record<string, { status: number; contentType: string; contentLength: string }> = {};
+
+    for (const videoUrl of extractedVideoUrls) {
       try {
-        const r = await fetch(cdnUrl, {
+        const r = await fetch(videoUrl, {
           method: "HEAD",
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Referer": "https://www.dmm.co.jp/",
           },
         });
-        const quality = cdnUrl.match(/_(\w+)_w\.mp4/)?.[1] || "unknown";
-        results[`cdn_${quality}`] = {
+        videoTestResults[videoUrl] = {
           status: r.status,
           contentType: r.headers.get("content-type") || "",
           contentLength: r.headers.get("content-length") || "",
         };
       } catch (e) {
-        const quality = cdnUrl.match(/_(\w+)_w\.mp4/)?.[1] || "unknown";
-        results[`cdn_${quality}`] = { status: 0, contentType: String(e) };
+        videoTestResults[videoUrl] = { status: 0, contentType: String(e), contentLength: "" };
       }
     }
 
-    // 全アイテムのsampleMovieURL有無を記録
-    const allItems = items.map((i: Record<string, unknown>) => ({
-      content_id: i.content_id || i.product_id,
-      title: (i.title as string || "").substring(0, 30),
-      hasSampleMovie: !!(
-        (i.sampleMovieURL as Record<string, string> | undefined)?.size_720_480 ||
-        (i.sampleMovieURL as Record<string, string> | undefined)?.size_476_306
-      ),
-      sampleMovieURL: i.sampleMovieURL || {},
-    }));
+    // CDN URLも構築してテスト
+    const cid = contentId.toLowerCase();
+    const firstChar = cid[0];
+    const threeChars = cid.substring(0, 3);
+    const cdnUrl = `https://cc3001.dmm.co.jp/litevideo/freepv/${firstChar}/${threeChars}/${cid}/${cid}_sm_w.mp4`;
+
+    try {
+      const r = await fetch(cdnUrl, {
+        method: "HEAD",
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Referer": "https://www.dmm.co.jp/",
+        },
+      });
+      videoTestResults[`cdn_constructed: ${cdnUrl}`] = {
+        status: r.status,
+        contentType: r.headers.get("content-type") || "",
+        contentLength: r.headers.get("content-length") || "",
+      };
+    } catch (e) {
+      videoTestResults[`cdn_constructed: ${cdnUrl}`] = { status: 0, contentType: String(e), contentLength: "" };
+    }
 
     return NextResponse.json({
-      tested_item: {
-        content_id: contentId,
-        title: item.title,
-        sampleMovieURL,
-      },
-      cdn_urls: cdnUrls,
-      test_results: results,
-      all_items: allItems,
+      content_id: contentId,
+      title: item.title,
+      player_url: playerUrl,
+      player_html_length: playerHtml.length,
+      player_html_preview: playerHtml.substring(0, 2000),
+      extracted_video_urls: extractedVideoUrls,
+      video_test_results: videoTestResults,
       region: process.env.VERCEL_REGION || "unknown",
     });
   } catch (error) {
