@@ -153,21 +153,27 @@ export function CandidateList({ candidates: initial }: Props) {
 
           if (!schedRes.ok) {
             console.error("Schedule creation failed:", await schedRes.text());
-          } else if (scheduleMode === "now") {
-            // 「今すぐ投稿」の場合、即座に投稿を実行
-            console.log("[post] Triggering immediate post...");
-            const postRes = await fetch("/api/post-now", { method: "POST" });
-            if (postRes.ok) {
+          } else {
+            const schedData = await schedRes.json();
+            const scheduledPostId = schedData.scheduled_post?.id;
+
+            if (scheduleMode === "now" && scheduledPostId) {
+              // 「今すぐ投稿」の場合、即座に投稿を実行
+              console.log("[post] Triggering immediate post for:", scheduledPostId);
+              const postRes = await fetch("/api/post-now", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ scheduled_post_id: scheduledPostId }),
+              });
               const result = await postRes.json();
               console.log("[post] Result:", result);
               if (result.posted > 0) {
-                // 投稿成功 → ステータスをUIに反映
                 setCandidates((prev) =>
                   prev.map((c) => (c.id === id ? { ...c, status: "approved" as const } : c))
                 );
+              } else if (result.error) {
+                console.error("[post] Failed:", result.error);
               }
-            } else {
-              console.error("[post] Trigger failed:", await postRes.text());
             }
           }
         }
