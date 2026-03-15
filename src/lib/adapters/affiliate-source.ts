@@ -100,13 +100,16 @@ export class DMMAdapter implements AffiliateSourceAdapter {
         const tags = [...genres, ...actresses].slice(0, 10);
         const category = genres[0] || "動画";
 
-        // サンプル動画URL（DMM APIのURLを優先、なければCDN URLを構築）
+        // サンプル動画URL: sampleMovieURLから正しいCIDを抽出してCDN URLを構築
         const contentId = item.content_id || item.product_id || "";
-        const apiVideoUrl = item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306 || "";
-        const sampleVideoUrl = apiVideoUrl || (contentId ? buildDmmVideoUrl(contentId) : "");
-        const hasSample = !!(item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306);
-        if (apiVideoUrl) {
-          console.log(`[DMMAdapter] API video URL for ${contentId}: ${apiVideoUrl}`);
+        const playerUrl = item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306 || "";
+        const hasSample = !!playerUrl;
+
+        // プレイヤーURLからreal CIDを抽出（content_idとは異なる場合がある）
+        const realCid = extractCidFromPlayerUrl(playerUrl) || contentId;
+        const sampleVideoUrl = realCid ? buildDmmVideoUrl(realCid) : "";
+        if (realCid !== contentId) {
+          console.log(`[DMMAdapter] Real CID for ${contentId}: ${realCid}`);
         }
 
         // 人気スコア（レビュー数ベース）
@@ -145,6 +148,16 @@ export class DMMAdapter implements AffiliateSourceAdapter {
       return [];
     }
   }
+}
+
+/**
+ * sampleMovieURLのプレイヤーURLからreal CIDを抽出
+ * 例: https://www.dmm.co.jp/litevideo/-/part/=/cid=n_1535grace032/... → n_1535grace032
+ */
+function extractCidFromPlayerUrl(playerUrl: string): string {
+  if (!playerUrl) return "";
+  const match = playerUrl.match(/cid=([^/]+)/);
+  return match?.[1] || "";
 }
 
 /**

@@ -383,13 +383,16 @@ async function waitForProcessing(
  * FANZA CDN URLの場合、複数の品質パターンを試行する
  */
 export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
-  // FANZA CDN URLの場合、複数品質をフォールバック
-  const urls = [videoUrl];
+  // FANZA CDN URLの場合、軽量版を優先（Vercelメモリ制限対策）
+  const urls: string[] = [];
   if (videoUrl.includes("cc3001.dmm.co.jp") && videoUrl.includes("_mhb_w.mp4")) {
     urls.push(
+      videoUrl.replace("_mhb_w.mp4", "_sm_w.mp4"),
       videoUrl.replace("_mhb_w.mp4", "_dmb_w.mp4"),
-      videoUrl.replace("_mhb_w.mp4", "_sm_w.mp4")
+      videoUrl
     );
+  } else {
+    urls.push(videoUrl);
   }
 
   for (const url of urls) {
