@@ -260,14 +260,8 @@ async function mediaUploadAppend(
   chunk: Buffer,
   segmentIndex: number
 ): Promise<{ success: boolean; error?: string }> {
-  // APPEND uses multipart/form-data — OAuth signs only the URL params
-  const oauthParams: Record<string, string> = {
-    command: "APPEND",
-    media_id: mediaId,
-    segment_index: String(segmentIndex),
-  };
-
-  const authHeader = buildOAuthHeader("POST", MEDIA_UPLOAD_URL, config, oauthParams);
+  // APPEND uses multipart/form-data — OAuth signature must NOT include body params
+  const authHeader = buildOAuthHeader("POST", MEDIA_UPLOAD_URL, config);
 
   // Build multipart form
   const boundary = `----boundary${Date.now()}`;
@@ -451,23 +445,24 @@ export async function uploadImageFromUrl(imageUrl: string): Promise<MediaUploadR
     const base64 = Buffer.from(arrayBuffer).toString("base64");
     console.log(`[uploadImage] Downloaded ${arrayBuffer.byteLength} bytes`);
 
-    // Simple image upload (not chunked)
-    const params: Record<string, string> = {
-      media_data: base64,
-      media_category: "tweet_image",
-    };
-    const authHeader = buildOAuthHeader("POST", MEDIA_UPLOAD_URL, config, {
-      media_category: "tweet_image",
-    });
+    // Simple image upload using multipart/form-data
+    // (base64 media_data is too large for OAuth signature with urlencoded)
+    const authHeader = buildOAuthHeader("POST", MEDIA_UPLOAD_URL, config);
 
-    const body = new URLSearchParams(params);
+    const boundary = `----boundary${Date.now()}`;
+    const parts: Buffer[] = [];
+    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="media_data"\r\n\r\n${base64}\r\n`));
+    parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="media_category"\r\n\r\ntweet_image\r\n`));
+    parts.push(Buffer.from(`--${boundary}--\r\n`));
+    const bodyBuffer = Buffer.concat(parts);
+
     const uploadRes = await fetch(MEDIA_UPLOAD_URL, {
       method: "POST",
       headers: {
         Authorization: authHeader,
-        "Content-Type": "application/x-www-form-urlencoded",
+        "Content-Type": `multipart/form-data; boundary=${boundary}`,
       },
-      body: body.toString(),
+      body: bodyBuffer,
     });
 
     const data = await uploadRes.json();
