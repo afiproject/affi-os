@@ -377,13 +377,13 @@ async function waitForProcessing(
  * FANZA CDN URLの場合、複数の品質パターンを試行する
  */
 export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
-  // FANZA CDN URLの場合、軽量版を優先（Vercelメモリ制限対策）
+  // FANZA CDN: 中画質(_dmb)を優先、なければ元URL(_mhb)、最後に低画質(_sm)
   const urls: string[] = [];
   if (videoUrl.includes("cc3001.dmm.co.jp") && videoUrl.includes("_mhb_w.mp4")) {
     urls.push(
-      videoUrl.replace("_mhb_w.mp4", "_sm_w.mp4"),
       videoUrl.replace("_mhb_w.mp4", "_dmb_w.mp4"),
-      videoUrl
+      videoUrl,
+      videoUrl.replace("_mhb_w.mp4", "_sm_w.mp4")
     );
   } else {
     urls.push(videoUrl);
@@ -414,8 +414,14 @@ export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
         console.log(`[downloadVideo] Not a video (${contentType}): ${url}`);
         continue;
       }
+      // Content-Lengthで事前にサイズチェック（15MB超はスキップ、次の軽量版を試す）
+      const contentLength = parseInt(res.headers.get("content-length") || "0", 10);
+      if (contentLength > 15 * 1024 * 1024) {
+        console.log(`[downloadVideo] Too large (${(contentLength / 1024 / 1024).toFixed(1)}MB), skipping: ${url}`);
+        continue;
+      }
       const arrayBuffer = await res.arrayBuffer();
-      console.log(`[downloadVideo] Downloaded ${arrayBuffer.byteLength} bytes from ${url}`);
+      console.log(`[downloadVideo] Downloaded ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB from ${url}`);
       return Buffer.from(arrayBuffer);
     } catch (error) {
       console.error(`[downloadVideo] Error for ${url}: ${String(error)}`);
