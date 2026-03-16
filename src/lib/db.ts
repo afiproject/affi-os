@@ -227,41 +227,32 @@ export async function getTopCandidatesForGeneration(limit: number = 20): Promise
     .delete()
     .or("body_text.is.null,body_text.eq.,body_text.like.[デモ]%");
 
-  // デモバリアント削除でvariantがなくなったapproved候補をpendingに戻す
-  // （前回のgenerateでデモテキストのまま自動承認されたケースを救済）
-  const { data: orphanedApproved } = await db
+  // バリアントなしのapproved候補をpendingに戻す + 関連scheduled_postsも削除
+  const { data: allCandidates } = await db
     .from("candidate_posts")
-    .select("id, variants:candidate_post_variants(id)")
-    .eq("status", "approved");
-  if (orphanedApproved) {
-    const noVariantIds = orphanedApproved
-      .filter((c: AnyRecord) => !c.variants || (c.variants as AnyRecord[]).length === 0)
+    .select("id, status, variants:candidate_post_variants(id)")
+    .in("status", ["approved", "pending", "scored"]);
+  if (allCandidates) {
+    const approvedNoVariantIds = allCandidates
+      .filter((c: AnyRecord) =>
+        c.status === "approved" &&
+        (!c.variants || (c.variants as AnyRecord[]).length === 0)
+      )
       .map((c: AnyRecord) => c.id as string);
-    if (noVariantIds.length > 0) {
-      // バリアントなしのapproved候補に紐づくscheduled_postsも削除
+    if (approvedNoVariantIds.length > 0) {
       await db
         .from("scheduled_posts")
         .delete()
-        .in("candidate_id", noVariantIds);
+        .in("candidate_id", approvedNoVariantIds);
       await db
         .from("candidate_posts")
         .update({ status: "pending" })
-        .in("id", noVariantIds);
-      console.log(`[generate] Reset ${noVariantIds.length} orphaned approved candidates to pending`);
+        .in("id", approvedNoVariantIds);
+      console.log(`[generate] Reset ${approvedNoVariantIds.length} orphaned approved candidates to pending`);
     }
   }
 
-  // 投稿済みアイテムのitem_idを取得
-  const { data: postedItems } = await db
-    .from("posted_logs")
-    .select("scheduled_post:scheduled_posts(candidate:candidate_posts(item_id))");
-  const postedItemIds = new Set(
-    (postedItems || [])
-      .map((p: AnyRecord) => p.scheduled_post?.candidate?.item_id)
-      .filter(Boolean)
-  );
-
-  // variantがないcandidateを取得
+  // variantがないcandidateを取得（posted済みチェックは省略 — 再投稿防止はpost時に行う）
   const { data, error } = await db
     .from("candidate_posts")
     .select(`
@@ -275,8 +266,7 @@ export async function getTopCandidatesForGeneration(limit: number = 20): Promise
   if (error) throw error;
   return (data || [])
     .filter((c: CandidatePost & { variants: { id: string }[] }) =>
-      (!c.variants || c.variants.length === 0) &&
-      !postedItemIds.has(c.item_id)
+      !c.variants || c.variants.length === 0
     )
     .map(mapCandidate)
     .slice(0, limit);
