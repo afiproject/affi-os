@@ -2,15 +2,27 @@ import { NextResponse } from "next/server";
 import { GET as collectHandler } from "@/app/api/cron/collect/route";
 import { GET as scoreHandler } from "@/app/api/cron/score/route";
 import { GET as generateHandler } from "@/app/api/cron/generate/route";
-import { GET as postHandler } from "@/app/api/cron/post/route";
+import {
+  getCandidates,
+  updateCandidateStatus,
+  createScheduledPost,
+  createPostedLog,
+  updateScheduledPostStatus,
+  startWorkflow,
+  completeWorkflow,
+  logError,
+} from "@/lib/db";
+import { createPostingAdapter } from "@/lib/adapters/posting";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 export const preferredRegion = ["hnd1"];
 
+const AUTO_POST_COUNT = 5; // 1回のpipelineで自動投稿する最大件数
+
 /**
- * GET /api/cron/pipeline — 全パイプライン一括実行
- * collect → score → generate を順番に実行
- * 投稿候補を一気に補充したい時に使う
+ * GET /api/cron/pipeline — 全自動パイプライン
+ * collect → score → generate → 自動承認 → 即時投稿
+ * Hobbyプランの1日1cron制限に対応: 1回で全部やる
  */
 export async function GET(request: Request) {
   const authHeader = request.headers.get("authorization");
@@ -20,7 +32,7 @@ export async function GET(request: Request) {
 
   const results: Record<string, unknown> = {};
 
-  // Step 1: Collect — 各routeのGET関数を直接呼び出し
+  // Step 1: Collect
   try {
     const collectRes = await collectHandler(request);
     results.collect = await collectRes.json();
@@ -47,13 +59,118 @@ export async function GET(request: Request) {
     results.generate = { error: String(e) };
   }
 
-  // Step 4: Post (スケジュール済みの投稿を実行)
+  // Step 4: 自動承認 → 即時投稿
   try {
-    const postRes = await postHandler(request);
-    results.post = await postRes.json();
-    console.log("[pipeline] post done:", JSON.stringify(results.post));
+    const candidates = await getCandidates({ status: "pending" });
+    // スコア上位N件を自動承認して投稿
+    const topCandidates = candidates
+      .sort((a, b) => b.total_score - a.total_score)
+      .slice(0, AUTO_POST_COUNT);
+
+    console.log(`[pipeline] Auto-posting ${topCandidates.length} candidates`);
+
+    const adapter = createPostingAdapter("x");
+    let posted = 0;
+    let failed = 0;
+    const postResults: unknown[] = [];
+
+    for (const candidate of topCandidates) {
+      const variant = candidate.variants.find((v) => v.is_selected) || candidate.variants[0];
+      if (!variant?.body_text) {
+        failed++;
+        postResults.push({ id: candidate.id, error: "no variant text" });
+        continue;
+      }
+
+      try {
+        // 1. ステータスをapprovedに更新
+        await updateCandidateStatus(candidate.id, "approved");
+
+        // 2. スケジュール投稿を作成（現在時刻=即時）
+        const scheduledPostId = await createScheduledPost({
+          candidate_id: candidate.id,
+          account_id: candidate.account_id || "",
+          variant_id: variant.id,
+          scheduled_at: new Date().toISOString(),
+          post_mode: "A",
+        });
+
+        // 3. 即時投稿
+        const bodyText = variant.body_text;
+        const hashtags = variant.hashtags?.length
+          ? "\n" + variant.hashtags.join(" ")
+          : "";
+        const affiliateUrl = candidate.item?.affiliate_url || "";
+        const sampleVideoUrl = candidate.item?.sample_video_url || "";
+        const cachedVideoUrl = candidate.item?.cached_video_url || "";
+        const thumbnailUrl = candidate.item?.thumbnail_url || "";
+
+        const fullText = `${bodyText}${hashtags}${affiliateUrl ? "\n" + affiliateUrl : ""}`;
+
+        console.log(`[pipeline] Posting: ${candidate.item?.title || candidate.id}`);
+
+        const result = await adapter.post(fullText, {
+          post_mode: "A",
+          video_url: sampleVideoUrl || undefined,
+          cached_video_url: cachedVideoUrl || undefined,
+          affiliate_url: affiliateUrl || undefined,
+          thumbnail_url: thumbnailUrl || undefined,
+        });
+
+        if (result.success && result.external_post_id) {
+          posted++;
+          await updateScheduledPostStatus(scheduledPostId, {
+            status: "posted",
+            posted_at: result.posted_at,
+            external_post_id: result.external_post_id,
+            reply_post_id: result.reply_post_id,
+          });
+          await createPostedLog({
+            scheduled_post_id: scheduledPostId,
+            external_post_id: result.external_post_id,
+            posted_at: result.posted_at,
+            body_text: fullText,
+            affiliate_url: affiliateUrl,
+            category: candidate.item?.category || "",
+            tags: candidate.item?.tags || [],
+            tone: variant.tone || "",
+            account_id: candidate.account_id || "",
+          });
+          postResults.push({
+            id: candidate.id,
+            title: candidate.item?.title,
+            external_post_id: result.external_post_id,
+            success: true,
+          });
+        } else {
+          failed++;
+          await updateScheduledPostStatus(scheduledPostId, {
+            status: "failed",
+            error_message: result.error_message,
+          });
+          postResults.push({
+            id: candidate.id,
+            error: result.error_message,
+          });
+        }
+      } catch (e) {
+        failed++;
+        postResults.push({ id: candidate.id, error: String(e) });
+        await logError("pipeline/auto-post", String(e));
+      }
+    }
+
+    results.auto_post = {
+      candidates_found: candidates.length,
+      attempted: topCandidates.length,
+      posted,
+      failed,
+      details: postResults,
+    };
+    console.log(`[pipeline] Auto-post done: ${posted} posted, ${failed} failed`);
   } catch (e) {
-    results.post = { error: String(e) };
+    results.auto_post = { error: String(e) };
+    console.error("[pipeline] Auto-post error:", e);
   }
 
   return NextResponse.json({
