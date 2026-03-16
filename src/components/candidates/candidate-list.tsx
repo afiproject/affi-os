@@ -118,7 +118,11 @@ export function CandidateList({ candidates: initial }: Props) {
       // If approved, create a scheduled post
       if (action === "approved") {
         const candidate = candidates.find((c) => c.id === id);
-        const variant = candidate?.variants.find((v) => v.is_selected) || candidate?.variants[0];
+        // デモバリアントを除外して本物だけ使う
+        const realVariants = (candidate?.variants || []).filter(
+          (v) => v.body_text && !v.body_text.includes("デモ") && !v.body_text.includes("プロンプト:")
+        );
+        const variant = realVariants.find((v) => v.is_selected) || realVariants[0];
         if (candidate) {
           // バリアントがない場合、custom_body_textが必須
           if (!variant && !options?.custom_body_text) {

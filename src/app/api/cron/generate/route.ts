@@ -78,6 +78,17 @@ export async function GET(request: Request) {
     for (const candidate of candidates) {
       if (!candidate.item) continue;
 
+      // 既存バリアントを全削除してから新規作成（デモ残留を完全防止）
+      const db = (await import("@/lib/supabase/admin")).getAdminClient();
+      const { data: oldVariants } = await db
+        .from("candidate_post_variants")
+        .select("id")
+        .eq("candidate_id", candidate.id);
+      if (oldVariants && oldVariants.length > 0) {
+        await db.from("candidate_post_variants").delete().eq("candidate_id", candidate.id);
+        console.log(`[generate] Deleted ${oldVariants.length} old variants for candidate ${candidate.id}`);
+      }
+
       for (let t = 0; t < tones.length; t++) {
         const tone = tones[t];
         const prompt = buildPostGenerationPrompt({

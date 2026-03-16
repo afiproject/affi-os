@@ -49,9 +49,13 @@ interface Props {
 }
 
 export function CandidateCard({ candidate, onAction, isCachingVideo }: Props) {
-  const selectedVariant = candidate.variants.find((v) => v.is_selected) || candidate.variants[0];
+  // デモバリアントを除外して本物のバリアントだけ使う
+  const realVariants = candidate.variants.filter(
+    (v) => v.body_text && !v.body_text.includes("デモ") && !v.body_text.includes("プロンプト:")
+  );
+  const selectedVariant = realVariants.find((v) => v.is_selected) || realVariants[0];
   const [postMode, setPostMode] = useState<"A" | "B">("A");
-  const hasVariants = candidate.variants.length > 0;
+  const hasVariants = realVariants.length > 0;
   const [useCustomText, setUseCustomText] = useState(!hasVariants);
   const [customText, setCustomText] = useState("");
   const [showApproveForm, setShowApproveForm] = useState(false);
@@ -168,7 +172,7 @@ export function CandidateCard({ candidate, onAction, isCachingVideo }: Props) {
             <span>{candidate.recommended_time}</span>
           </div>
           <div className="flex items-center gap-1 text-muted-foreground">
-            {candidate.variants.length}案
+            {realVariants.length}案
           </div>
         </div>
 

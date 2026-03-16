@@ -83,11 +83,12 @@ export async function POST(request: Request) {
       bodyTextLength: bodyText.length,
     });
 
-    if (!bodyText) {
+    if (!bodyText || bodyText.includes("デモ") || bodyText.includes("プロンプト:") || bodyText.includes("プロンプト：")) {
       return NextResponse.json({
         success: false,
-        error: "No body text available",
+        error: "投稿テキストがデモ/プロンプト文のため投稿を中止しました。generateを再実行してください。",
         scheduled_post_id,
+        body_text_preview: bodyText?.substring(0, 50),
       }, { status: 400 });
     }
 
