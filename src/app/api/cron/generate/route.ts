@@ -126,7 +126,7 @@ export async function GET(request: Request) {
     // ---- 自動投稿: 承認なしでスケジュール登録 ----
     let autoScheduledCount = 0;
     const settings = await getSystemSettings();
-    const autoPostEnabled = settings?.auto_post_enabled ?? true;
+    const autoPostEnabled = settings?.auto_post_enabled ?? false;
 
     console.log(`[generate] Auto-post check: enabled=${autoPostEnabled}, candidates=${candidates.length}, account=${account?.id || "NULL"}`);
 

@@ -221,54 +221,53 @@ export async function updateCandidateStatus(
 
 export async function getTopCandidatesForGeneration(limit: number = 20): Promise<CandidatePost[]> {
   const db = getAdminClient();
-  // デモ/空のvariantsを先に削除（body_textが空またはデモテキストのもの）
-  // PostgRESTの.or()で[デモ]のブラケットが壊れるため、個別に削除
-  await db.from("candidate_post_variants").delete().is("body_text", null);
-  await db.from("candidate_post_variants").delete().eq("body_text", "");
-  await db.from("candidate_post_variants").delete().like("body_text", "%デモ%");
-  await db.from("candidate_post_variants").delete().like("body_text", "%プロンプト:%");
 
-  // バリアントなしのapproved候補をpendingに戻す + 関連scheduled_postsも削除
-  const { data: allCandidates } = await db
-    .from("candidate_posts")
-    .select("id, status, variants:candidate_post_variants(id)")
-    .in("status", ["approved", "pending", "scored"]);
-  if (allCandidates) {
-    const approvedNoVariantIds = allCandidates
-      .filter((c: AnyRecord) =>
-        c.status === "approved" &&
-        (!c.variants || (c.variants as AnyRecord[]).length === 0)
-      )
-      .map((c: AnyRecord) => c.id as string);
-    if (approvedNoVariantIds.length > 0) {
-      await db
-        .from("scheduled_posts")
-        .delete()
-        .in("candidate_id", approvedNoVariantIds);
-      await db
-        .from("candidate_posts")
-        .update({ status: "pending" })
-        .in("id", approvedNoVariantIds);
-      console.log(`[generate] Reset ${approvedNoVariantIds.length} orphaned approved candidates to pending`);
-    }
-  }
-
-  // variantがないcandidateを取得（posted済みチェックは省略 — 再投稿防止はpost時に行う）
-  const { data, error } = await db
+  // 全候補をバリアント付きで取得（pending, scored, approved全て対象）
+  const { data: allCandidates, error: fetchError } = await db
     .from("candidate_posts")
     .select(`
       *,
       item:affiliate_items(*),
-      variants:candidate_post_variants(id)
+      variants:candidate_post_variants(*)
     `)
-    .in("status", ["pending", "scored"])
+    .in("status", ["pending", "scored", "approved"])
     .order("total_score", { ascending: false })
     .limit(limit * 2);
-  if (error) throw error;
-  return (data || [])
-    .filter((c: CandidatePost & { variants: { id: string }[] }) =>
-      !c.variants || c.variants.length === 0
-    )
+  if (fetchError) throw fetchError;
+
+  // JS側で判定: 本物のバリアント（デモ/空でない）を持たない候補を抽出
+  const isDemoVariant = (v: AnyRecord) =>
+    !v.body_text ||
+    v.body_text === "" ||
+    v.body_text.includes("デモ") ||
+    v.body_text.includes("プロンプト:") ||
+    v.body_text.includes("プロンプト：");
+
+  const needsGeneration = (allCandidates || []).filter((c: AnyRecord) => {
+    const variants = (c.variants || []) as AnyRecord[];
+    const realVariants = variants.filter((v: AnyRecord) => !isDemoVariant(v));
+    return realVariants.length === 0;
+  });
+
+  console.log(`[generate] Found ${needsGeneration.length} candidates needing generation out of ${(allCandidates || []).length} total`);
+
+  // デモバリアントをID指定で確実に削除 & ステータスをpendingに戻す
+  for (const c of needsGeneration) {
+    const variants = ((c as AnyRecord).variants || []) as AnyRecord[];
+    const demoIds = variants.map((v: AnyRecord) => v.id as string);
+    if (demoIds.length > 0) {
+      await db.from("candidate_post_variants").delete().in("id", demoIds);
+      console.log(`[generate] Deleted ${demoIds.length} demo variants for candidate ${c.id}`);
+    }
+    if ((c as AnyRecord).status === "approved") {
+      await db.from("scheduled_posts").delete().eq("candidate_id", c.id);
+      await db.from("candidate_posts").update({ status: "pending" }).eq("id", c.id);
+      console.log(`[generate] Reset approved candidate ${c.id} to pending`);
+    }
+  }
+
+  return needsGeneration
+    .filter((c: AnyRecord) => c.item) // itemがないものは除外
     .map(mapCandidate)
     .slice(0, limit);
 }
