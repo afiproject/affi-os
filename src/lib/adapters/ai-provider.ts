@@ -24,7 +24,7 @@ export class ClaudeProvider implements AIProvider {
   async generateText(prompt: string, systemPrompt?: string): Promise<AIGenerationResult> {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
-      return this.mockGenerate(prompt);
+      throw new Error("[ClaudeProvider] ANTHROPIC_API_KEY is not set");
     }
 
     const start = Date.now();
@@ -46,8 +46,7 @@ export class ClaudeProvider implements AIProvider {
     const data = await res.json();
 
     if (!res.ok || data.error) {
-      console.error("[ClaudeProvider] API error:", JSON.stringify(data));
-      return this.mockGenerate(prompt);
+      throw new Error(`[ClaudeProvider] API error: ${JSON.stringify(data.error || data)}`);
     }
 
     return {
@@ -56,19 +55,6 @@ export class ClaudeProvider implements AIProvider {
       output_tokens: data.usage?.output_tokens || 0,
       duration_ms: Date.now() - start,
       model: data.model || "claude-sonnet-4-6",
-      provider: "claude",
-    };
-  }
-
-  private async mockGenerate(prompt: string): Promise<AIGenerationResult> {
-    // デモモード用のモック
-    await new Promise((r) => setTimeout(r, 100));
-    return {
-      text: `[デモ] AIが生成した文面です。プロンプト: ${prompt.slice(0, 50)}...`,
-      input_tokens: prompt.length,
-      output_tokens: 50,
-      duration_ms: 100,
-      model: "demo-mock",
       provider: "claude",
     };
   }
@@ -81,7 +67,7 @@ export class OpenAIProvider implements AIProvider {
   async generateText(prompt: string, systemPrompt?: string): Promise<AIGenerationResult> {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return this.mockGenerate(prompt);
+      throw new Error("[OpenAIProvider] OPENAI_API_KEY is not set");
     }
 
     const start = Date.now();
@@ -103,24 +89,17 @@ export class OpenAIProvider implements AIProvider {
     });
 
     const data = await res.json();
+
+    if (!res.ok || data.error) {
+      throw new Error(`[OpenAIProvider] API error: ${JSON.stringify(data.error || data)}`);
+    }
+
     return {
       text: data.choices?.[0]?.message?.content || "",
       input_tokens: data.usage?.prompt_tokens || 0,
       output_tokens: data.usage?.completion_tokens || 0,
       duration_ms: Date.now() - start,
       model: data.model || "gpt-4o",
-      provider: "openai",
-    };
-  }
-
-  private async mockGenerate(prompt: string): Promise<AIGenerationResult> {
-    await new Promise((r) => setTimeout(r, 100));
-    return {
-      text: `[デモ] OpenAI生成文面。プロンプト: ${prompt.slice(0, 50)}...`,
-      input_tokens: prompt.length,
-      output_tokens: 50,
-      duration_ms: 100,
-      model: "demo-mock",
       provider: "openai",
     };
   }

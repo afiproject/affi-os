@@ -98,15 +98,32 @@ export async function GET(request: Request) {
           ng_words: allNgWords,
         });
 
-        const result = await provider.generateText(prompt);
+        let result: Awaited<ReturnType<typeof provider.generateText>>;
+        try {
+          result = await provider.generateText(prompt);
+        } catch (err) {
+          console.error(`[generate] AI failed for candidate ${candidate.id}, tone ${tone}:`, String(err));
+          continue; // このトーンをスキップ、次のトーンへ
+        }
+
+        // デモテキストが返された場合はスキップ
+        if (result.text.startsWith("[デモ]") || result.model === "demo-mock") {
+          console.warn(`[generate] Demo text returned for candidate ${candidate.id}, skipping`);
+          continue;
+        }
 
         // ハッシュタグも生成
-        const hashtagPrompt = buildHashtagPrompt(candidate.item, 3);
-        const hashtagResult = await provider.generateText(hashtagPrompt);
-        const hashtags = hashtagResult.text
-          .split("\n")
-          .map((h) => h.trim())
-          .filter((h) => h.startsWith("#"));
+        let hashtags: string[] = [];
+        try {
+          const hashtagPrompt = buildHashtagPrompt(candidate.item, 3);
+          const hashtagResult = await provider.generateText(hashtagPrompt);
+          hashtags = hashtagResult.text
+            .split("\n")
+            .map((h) => h.trim())
+            .filter((h) => h.startsWith("#"));
+        } catch {
+          console.warn(`[generate] Hashtag generation failed, continuing without hashtags`);
+        }
 
         await createVariant({
           candidate_id: candidate.id,
