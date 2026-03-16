@@ -227,6 +227,30 @@ export async function getTopCandidatesForGeneration(limit: number = 20): Promise
     .delete()
     .or("body_text.is.null,body_text.eq.,body_text.like.[デモ]%");
 
+  // デモバリアント削除でvariantがなくなったapproved候補をpendingに戻す
+  // （前回のgenerateでデモテキストのまま自動承認されたケースを救済）
+  const { data: orphanedApproved } = await db
+    .from("candidate_posts")
+    .select("id, variants:candidate_post_variants(id)")
+    .eq("status", "approved");
+  if (orphanedApproved) {
+    const noVariantIds = orphanedApproved
+      .filter((c: AnyRecord) => !c.variants || (c.variants as AnyRecord[]).length === 0)
+      .map((c: AnyRecord) => c.id as string);
+    if (noVariantIds.length > 0) {
+      // バリアントなしのapproved候補に紐づくscheduled_postsも削除
+      await db
+        .from("scheduled_posts")
+        .delete()
+        .in("candidate_id", noVariantIds);
+      await db
+        .from("candidate_posts")
+        .update({ status: "pending" })
+        .in("id", noVariantIds);
+      console.log(`[generate] Reset ${noVariantIds.length} orphaned approved candidates to pending`);
+    }
+  }
+
   // 投稿済みアイテムのitem_idを取得
   const { data: postedItems } = await db
     .from("posted_logs")
