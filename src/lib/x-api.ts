@@ -60,25 +60,19 @@ function buildOAuthHeader(
     oauth_version: "1.0",
   };
 
-  // Combine all params for signature base
   const allParams: Record<string, string> = { ...oauthParams };
   if (bodyParams) {
     Object.assign(allParams, bodyParams);
   }
 
-  // Sort and encode
   const paramString = Object.keys(allParams)
     .sort()
     .map((k) => `${percentEncode(k)}=${percentEncode(allParams[k])}`)
     .join("&");
 
-  // Signature base string
   const baseString = `${method.toUpperCase()}&${percentEncode(url)}&${percentEncode(paramString)}`;
-
-  // Signing key
   const signingKey = `${percentEncode(config.apiSecret)}&${percentEncode(config.accessTokenSecret)}`;
 
-  // HMAC-SHA1
   const signature = crypto
     .createHmac("sha1", signingKey)
     .update(baseString)
@@ -86,7 +80,6 @@ function buildOAuthHeader(
 
   oauthParams.oauth_signature = signature;
 
-  // Build header
   const headerParts = Object.keys(oauthParams)
     .sort()
     .map((k) => `${percentEncode(k)}="${percentEncode(oauthParams[k])}"`)
@@ -170,11 +163,6 @@ export interface MediaUploadResult {
   error?: string;
 }
 
-/**
- * 動画ファイルをX APIにアップロード（chunked upload）
- * @param videoBuffer 動画のバイナリデータ
- * @param mimeType MIMEタイプ（default: video/mp4）
- */
 export async function uploadVideo(
   videoBuffer: Buffer,
   mimeType: string = "video/mp4"
@@ -185,19 +173,26 @@ export async function uploadVideo(
   }
 
   try {
+    console.log(`[uploadVideo] Starting chunked upload: ${videoBuffer.length} bytes, ${mimeType}`);
+
     // Step 1: INIT
     const initResult = await mediaUploadInit(config, videoBuffer.length, mimeType);
     if (!initResult.success || !initResult.media_id) {
+      console.error(`[uploadVideo] INIT failed: ${initResult.error}`);
       return { success: false, error: initResult.error || "INIT failed" };
     }
     const mediaId = initResult.media_id;
+    console.log(`[uploadVideo] INIT ok: media_id=${mediaId}`);
 
     // Step 2: APPEND (chunked)
+    const totalChunks = Math.ceil(videoBuffer.length / CHUNK_SIZE);
     for (let i = 0; i < videoBuffer.length; i += CHUNK_SIZE) {
       const chunk = videoBuffer.subarray(i, Math.min(i + CHUNK_SIZE, videoBuffer.length));
       const segmentIndex = Math.floor(i / CHUNK_SIZE);
+      console.log(`[uploadVideo] APPEND chunk ${segmentIndex + 1}/${totalChunks} (${chunk.length} bytes)`);
       const appendResult = await mediaUploadAppend(config, mediaId, chunk, segmentIndex);
       if (!appendResult.success) {
+        console.error(`[uploadVideo] APPEND failed: ${appendResult.error}`);
         return { success: false, error: appendResult.error || `APPEND segment ${segmentIndex} failed` };
       }
     }
@@ -205,19 +200,26 @@ export async function uploadVideo(
     // Step 3: FINALIZE
     const finalizeResult = await mediaUploadFinalize(config, mediaId);
     if (!finalizeResult.success) {
+      console.error(`[uploadVideo] FINALIZE failed: ${finalizeResult.error}`);
       return { success: false, error: finalizeResult.error || "FINALIZE failed" };
     }
+    console.log(`[uploadVideo] FINALIZE ok, processing=${finalizeResult.processing}`);
 
-    // Step 4: Check processing status (動画は非同期処理)
+    // Step 4: Check processing status
     if (finalizeResult.processing) {
+      console.log(`[uploadVideo] Waiting for processing...`);
       const statusResult = await waitForProcessing(config, mediaId);
       if (!statusResult.success) {
+        console.error(`[uploadVideo] Processing failed: ${statusResult.error}`);
         return { success: false, error: statusResult.error || "Processing failed" };
       }
+      console.log(`[uploadVideo] Processing complete`);
     }
 
+    console.log(`[uploadVideo] SUCCESS: media_id=${mediaId}`);
     return { success: true, media_id: mediaId };
   } catch (error) {
+    console.error(`[uploadVideo] Exception: ${String(error)}`);
     return { success: false, error: `Media upload error: ${String(error)}` };
   }
 }
@@ -260,20 +262,14 @@ async function mediaUploadAppend(
   chunk: Buffer,
   segmentIndex: number
 ): Promise<{ success: boolean; error?: string }> {
-  // APPEND uses multipart/form-data — OAuth signature must NOT include body params
   const authHeader = buildOAuthHeader("POST", MEDIA_UPLOAD_URL, config);
 
-  // Build multipart form
   const boundary = `----boundary${Date.now()}`;
   const parts: Buffer[] = [];
 
-  // command field
   parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="command"\r\n\r\nAPPEND\r\n`));
-  // media_id field
   parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="media_id"\r\n\r\n${mediaId}\r\n`));
-  // segment_index field
   parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="segment_index"\r\n\r\n${segmentIndex}\r\n`));
-  // media_data field (binary)
   parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="media_data"\r\n\r\n`));
   parts.push(Buffer.from(chunk.toString("base64")));
   parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
@@ -323,7 +319,6 @@ async function mediaUploadFinalize(
     return { success: false, error: `FINALIZE error (${res.status}): ${JSON.stringify(data)}` };
   }
 
-  // 動画の場合 processing_info が返る
   const processing = !!data.processing_info;
   return { success: true, processing };
 }
@@ -364,7 +359,6 @@ async function waitForProcessing(
       return { success: false, error: errorMsg };
     }
 
-    // Wait before next check
     const waitSecs = data.processing_info?.check_after_secs || 5;
     await new Promise((r) => setTimeout(r, waitSecs * 1000));
   }
@@ -374,26 +368,48 @@ async function waitForProcessing(
 
 /**
  * URLから動画をダウンロードしてBufferとして返す
- * FANZA CDN URLの場合、複数の品質パターンを試行する
+ * FANZA CDN URLの場合、最も軽い_sm_w.mp4を最優先で試行
  */
 export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
-  // FANZA CDN: 中画質(_dmb)を優先、なければ元URL(_mhb)、最後に低画質(_sm)
   const urls: string[] = [];
-  if (videoUrl.includes("cc3001.dmm.co.jp") && videoUrl.includes("_mhb_w.mp4")) {
-    urls.push(
-      videoUrl.replace("_mhb_w.mp4", "_dmb_w.mp4"),
-      videoUrl,
-      videoUrl.replace("_mhb_w.mp4", "_sm_w.mp4")
-    );
+
+  if (videoUrl.includes("cc3001.dmm.co.jp")) {
+    // FANZA CDN: 軽量版を最優先（確実にDLできるサイズ）
+    if (videoUrl.includes("_mhb_w.mp4")) {
+      urls.push(
+        videoUrl.replace("_mhb_w.mp4", "_sm_w.mp4"),   // 最軽量（~3MB）
+        videoUrl,                                         // 中画質
+        videoUrl.replace("_mhb_w.mp4", "_dmb_w.mp4"),   // 高画質
+      );
+    } else if (videoUrl.includes("_dmb_w.mp4")) {
+      urls.push(
+        videoUrl.replace("_dmb_w.mp4", "_sm_w.mp4"),
+        videoUrl.replace("_dmb_w.mp4", "_mhb_w.mp4"),
+        videoUrl,
+      );
+    } else if (videoUrl.includes("_sm_w.mp4")) {
+      urls.push(videoUrl);
+    } else {
+      // 不明な形式 → sm, mhb, dmbを試行
+      const base = videoUrl.replace(/\.mp4$/, "");
+      urls.push(
+        base.replace(/_[^_]*$/, "_sm_w") + ".mp4",
+        base.replace(/_[^_]*$/, "_mhb_w") + ".mp4",
+        videoUrl,
+      );
+    }
   } else {
     urls.push(videoUrl);
   }
+
+  console.log(`[downloadVideo] Will try ${urls.length} URLs for: ${videoUrl}`);
 
   for (const url of urls) {
     try {
       console.log(`[downloadVideo] Trying: ${url}`);
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 60000); // 60秒タイムアウト
+      const timeout = setTimeout(() => controller.abort(), 30000); // 30秒（軽量版なら十分）
+
       const res = await fetch(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -403,32 +419,37 @@ export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
         signal: controller.signal,
       });
       clearTimeout(timeout);
+
       if (!res.ok) {
-        console.log(`[downloadVideo] ${res.status} for ${url}`);
+        console.log(`[downloadVideo] HTTP ${res.status} for ${url}`);
         continue;
       }
+
       const contentType = res.headers.get("content-type") || "";
-      console.log(`[downloadVideo] Content-Type: ${contentType} for ${url}`);
-      // video/*, application/octet-stream, またはmp4拡張子のURLならOK
-      if (!contentType.includes("video") && !contentType.includes("octet-stream") && !url.includes(".mp4")) {
-        console.log(`[downloadVideo] Not a video (${contentType}): ${url}`);
-        continue;
-      }
-      // Content-Lengthで事前にサイズチェック（50MB超はスキップ）
       const contentLength = parseInt(res.headers.get("content-length") || "0", 10);
-      if (contentLength > 50 * 1024 * 1024) {
-        console.log(`[downloadVideo] Too large (${(contentLength / 1024 / 1024).toFixed(1)}MB), skipping: ${url}`);
+      console.log(`[downloadVideo] OK: type=${contentType}, size=${contentLength > 0 ? (contentLength / 1024 / 1024).toFixed(1) + "MB" : "unknown"}`);
+
+      // content-typeチェック（緩和: mp4 URLならOK）
+      if (!contentType.includes("video") && !contentType.includes("octet-stream") && !url.endsWith(".mp4")) {
+        console.log(`[downloadVideo] Skipping non-video content-type: ${contentType}`);
         continue;
       }
+
+      // 15MB超はスキップ（軽量版優先なので通常は3-8MB）
+      if (contentLength > 15 * 1024 * 1024) {
+        console.log(`[downloadVideo] Too large (${(contentLength / 1024 / 1024).toFixed(1)}MB), trying next`);
+        continue;
+      }
+
       const arrayBuffer = await res.arrayBuffer();
-      console.log(`[downloadVideo] Downloaded ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB from ${url}`);
+      console.log(`[downloadVideo] SUCCESS: ${(arrayBuffer.byteLength / 1024 / 1024).toFixed(1)}MB from ${url}`);
       return Buffer.from(arrayBuffer);
     } catch (error) {
-      console.error(`[downloadVideo] Error for ${url}: ${String(error)}`);
+      console.error(`[downloadVideo] FAILED for ${url}: ${String(error)}`);
     }
   }
 
-  console.error(`[downloadVideo] All URLs failed for ${videoUrl}`);
+  console.error(`[downloadVideo] ALL URLS FAILED for ${videoUrl}`);
   return null;
 }
 
@@ -443,16 +464,26 @@ export async function uploadImageFromUrl(imageUrl: string): Promise<MediaUploadR
 
   try {
     console.log(`[uploadImage] Downloading: ${imageUrl}`);
-    const res = await fetch(imageUrl);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+
+    const res = await fetch(imageUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Referer": "https://www.dmm.co.jp/",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
     if (!res.ok) {
+      console.error(`[uploadImage] Download failed: HTTP ${res.status} for ${imageUrl}`);
       return { success: false, error: `Image download failed: ${res.status}` };
     }
     const arrayBuffer = await res.arrayBuffer();
     const base64 = Buffer.from(arrayBuffer).toString("base64");
-    console.log(`[uploadImage] Downloaded ${arrayBuffer.byteLength} bytes`);
+    console.log(`[uploadImage] Downloaded ${(arrayBuffer.byteLength / 1024).toFixed(0)}KB`);
 
-    // Simple image upload using multipart/form-data
-    // (base64 media_data is too large for OAuth signature with urlencoded)
     const authHeader = buildOAuthHeader("POST", MEDIA_UPLOAD_URL, config);
 
     const boundary = `----boundary${Date.now()}`;
@@ -473,12 +504,14 @@ export async function uploadImageFromUrl(imageUrl: string): Promise<MediaUploadR
 
     const data = await uploadRes.json();
     if (!uploadRes.ok) {
+      console.error(`[uploadImage] Upload failed: ${uploadRes.status} ${JSON.stringify(data)}`);
       return { success: false, error: `Image upload error (${uploadRes.status}): ${JSON.stringify(data)}` };
     }
 
-    console.log(`[uploadImage] Uploaded, media_id: ${data.media_id_string}`);
+    console.log(`[uploadImage] SUCCESS: media_id=${data.media_id_string}`);
     return { success: true, media_id: data.media_id_string };
   } catch (error) {
+    console.error(`[uploadImage] Exception: ${String(error)}`);
     return { success: false, error: `Image upload error: ${String(error)}` };
   }
 }
@@ -519,7 +552,6 @@ export async function getTweetMetrics(tweetIds: string[]): Promise<Map<string, T
   const result = new Map<string, TweetMetrics>();
   if (!config || tweetIds.length === 0) return result;
 
-  // X API v2 supports up to 100 tweet IDs per request
   const batchSize = 100;
   for (let i = 0; i < tweetIds.length; i += batchSize) {
     const batch = tweetIds.slice(i, i + batchSize);

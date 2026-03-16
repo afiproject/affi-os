@@ -89,6 +89,11 @@ export async function GET(request: Request) {
         thumbnail_url: thumbnailUrl || undefined,
       });
 
+      // メディアデバッグ情報をログ
+      if (result.media_debug) {
+        console.log(`[cron/post] Media debug for ${post.id}: ${JSON.stringify(result.media_debug)}`);
+      }
+
       if (result.success && result.external_post_id) {
         postedCount++;
 

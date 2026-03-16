@@ -35,8 +35,8 @@ const DEFAULT_CONSTRAINTS: ScheduleConstraints = {
   allow_night: false,
   night_start_jst: 1,  // JST 01:00
   night_end_jst: 7,    // JST 07:00
-  peak_hours_jst: [10, 12, 15, 19, 20, 21, 23], // JST
-  peak_half_hours_jst: [21.5],  // JST 21:30
+  peak_hours_jst: [22, 23, 21, 20, 12, 15, 10], // JST（Noimos AI推奨: 22-24時がベスト）
+  peak_half_hours_jst: [22.25, 22.75, 23.25],  // JST 22:15, 22:45, 23:15
 };
 
 export function findOptimalTimeSlots(
