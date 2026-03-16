@@ -82,6 +82,8 @@ export class DMMAdapter implements AffiliateSourceAdapter {
       sort,
       offset: String(offset),
       output: "json",
+      article: "video",        // VR除外（通常動画のみ）
+      article_id: "1",         // 通常動画カテゴリ
     });
 
     if (options?.category) {
@@ -106,6 +108,14 @@ export class DMMAdapter implements AffiliateSourceAdapter {
         const actresses = (item.iteminfo?.actress || []).map((a: { name: string }) => a.name);
         const tags = [...genres, ...actresses].slice(0, 10);
         const category = genres[0] || "動画";
+
+        // VR動画を除外（タイトルやジャンルでVRを含むものをスキップ）
+        const isVR = genres.some((g: string) => g.includes("VR") || g.includes("3D")) ||
+          (item.title || "").includes("【VR】");
+        if (isVR) {
+          console.log(`[DMMAdapter] Skipping VR item: ${item.title}`);
+          continue;
+        }
 
         // サンプル動画URL: sampleMovieURLから正しいCIDを抽出してCDN URLを構築
         const contentId = item.content_id || item.product_id || "";
