@@ -33,6 +33,7 @@ export async function POST(request: Request) {
 
     // 指定されたスケジュール投稿を直接取得（getDuePostsの時刻チェックをスキップ）
     const db = getAdminClient();
+    // variant_idがNULLの場合にjoinエラーが起きるため、candidateだけjoin
     const { data: postData, error: fetchError } = await db
       .from("scheduled_posts")
       .select(`
@@ -41,14 +42,14 @@ export async function POST(request: Request) {
           *,
           item:affiliate_items(*),
           variants:candidate_post_variants(*)
-        ),
-        variant:candidate_post_variants(*)
+        )
       `)
       .eq("id", scheduled_post_id)
       .eq("status", "scheduled")
       .single();
 
     if (fetchError || !postData) {
+      console.error("[post-now] Query error:", fetchError?.message, "post_id:", scheduled_post_id);
       return NextResponse.json({
         success: false,
         error: "Scheduled post not found or not in scheduled status",
@@ -58,12 +59,29 @@ export async function POST(request: Request) {
     }
 
     const post = postData as Record<string, unknown>;
-    const variant = post.variant as Record<string, unknown> | null;
     const candidate = post.candidate as Record<string, unknown> | null;
     const item = candidate?.item as Record<string, unknown> | null;
 
+    // variant_idがある場合は個別に取得
+    let variant: Record<string, unknown> | null = null;
+    if (post.variant_id) {
+      const { data: variantData } = await db
+        .from("candidate_post_variants")
+        .select("*")
+        .eq("id", post.variant_id as string)
+        .single();
+      variant = variantData as Record<string, unknown> | null;
+    }
+
     const bodyText = (post.custom_body_text as string) ||
       (variant?.body_text as string) || "";
+
+    console.log("[post-now] Data:", {
+      scheduled_post_id,
+      has_variant: !!variant,
+      has_custom_text: !!(post.custom_body_text as string),
+      bodyTextLength: bodyText.length,
+    });
 
     if (!bodyText) {
       return NextResponse.json({

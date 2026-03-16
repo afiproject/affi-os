@@ -173,7 +173,7 @@ export function CandidateCard({ candidate, onAction, isCachingVideo }: Props) {
         </div>
 
         {/* Selected variant preview */}
-        {selectedVariant && (
+        {selectedVariant ? (
           <div className="p-2 rounded-md bg-secondary/50 border">
             <div className="flex items-center gap-1 mb-1">
               <Badge variant="outline" className="text-[10px]">
@@ -186,6 +186,10 @@ export function CandidateCard({ candidate, onAction, isCachingVideo }: Props) {
             <p className="text-xs leading-relaxed line-clamp-3 whitespace-pre-line">
               {selectedVariant.body_text}
             </p>
+          </div>
+        ) : (
+          <div className="p-2 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-800 text-xs">
+            AI投稿文が未生成です。「自分で入力」から投稿できます。
           </div>
         )}
 

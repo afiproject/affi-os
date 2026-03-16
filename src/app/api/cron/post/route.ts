@@ -54,14 +54,15 @@ export async function GET(request: Request) {
     const adapter = createPostingAdapter("x");
 
     for (const post of duePosts) {
-      if (!post.variant?.body_text) {
+      // カスタムテキストまたはバリアントのテキストが必要
+      const bodyText = post.custom_body_text || post.variant?.body_text || "";
+      if (!bodyText) {
+        console.log(`[cron/post] Skipping ${post.id}: no body text`);
         failedCount++;
         continue;
       }
 
-      // カスタムテキストがあればそれを使う、なければAI生成テキスト
-      const bodyText = post.custom_body_text || post.variant.body_text;
-      const hashtags = post.variant.hashtags?.length
+      const hashtags = post.variant?.hashtags?.length
         ? "\n" + post.variant.hashtags.join(" ")
         : "";
       const affiliateUrl = post.candidate?.item?.affiliate_url || "";
@@ -114,7 +115,7 @@ export async function GET(request: Request) {
           affiliate_url: affiliateUrl,
           category: post.candidate?.item?.category || "",
           tags: post.candidate?.item?.tags || [],
-          tone: post.variant.tone || "",
+          tone: post.variant?.tone || "",
           account_id: post.account_id,
         });
       } else {

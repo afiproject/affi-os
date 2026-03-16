@@ -53,6 +53,7 @@ export function CandidateList({ candidates: initial }: Props) {
   const [candidates, setCandidates] = useState(initial);
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [cachingVideoId, setCachingVideoId] = useState<string | null>(null);
+  const [postingStatus, setPostingStatus] = useState<{id: string; message: string; type: "info" | "success" | "error"} | null>(null);
 
   const filtered =
     filter === "all" ? candidates : candidates.filter((c) => c.status === filter);
@@ -112,7 +113,11 @@ export function CandidateList({ candidates: initial }: Props) {
         if (candidate) {
           // バリアントがない場合、custom_body_textが必須
           if (!variant && !options?.custom_body_text) {
-            console.error("[approve] No variant and no custom text - cannot post");
+            setPostingStatus({ id, message: "投稿テキストを入力してください（AI生成がないため）", type: "error" });
+            // ステータスを元に戻す
+            setCandidates((prev) =>
+              prev.map((c) => (c.id === id ? { ...c, status: "pending" } : c))
+            );
             return;
           }
 
@@ -121,13 +126,10 @@ export function CandidateList({ candidates: initial }: Props) {
           const scheduleMode = options?.schedule_mode || "now";
 
           if (scheduleMode === "now") {
-            // 今すぐ投稿: 現在時刻を設定（すぐにcron/postで拾われる）
             scheduledAt = new Date().toISOString();
           } else if (scheduleMode === "custom" && options?.scheduled_at) {
-            // 時間指定
             scheduledAt = options.scheduled_at;
           } else {
-            // AIお任せ: recommended_timeを使用
             scheduledAt = candidate.recommended_time
               ? new Date(
                   new Date().toDateString() + " " + candidate.recommended_time
@@ -149,14 +151,17 @@ export function CandidateList({ candidates: initial }: Props) {
           });
 
           if (!schedRes.ok) {
-            console.error("Schedule creation failed:", await schedRes.text());
-          } else {
-            const schedData = await schedRes.json();
-            const scheduledPostId = schedData.scheduled_post?.id;
+            const errText = await schedRes.text();
+            setPostingStatus({ id, message: `スケジュール登録失敗: ${errText}`, type: "error" });
+            return;
+          }
 
-            if (scheduleMode === "now" && scheduledPostId) {
-              // 「今すぐ投稿」の場合、即座に投稿を実行
-              console.log("[post] Triggering immediate post for:", scheduledPostId);
+          const schedData = await schedRes.json();
+          const scheduledPostId = schedData.scheduled_post?.id;
+
+          if (scheduleMode === "now" && scheduledPostId) {
+            setPostingStatus({ id, message: "Xに投稿中...（動画アップロード含む、最大2分）", type: "info" });
+            try {
               const postRes = await fetch("/api/post-now", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -165,50 +170,25 @@ export function CandidateList({ candidates: initial }: Props) {
               const result = await postRes.json();
               console.log("[post] Result:", result);
               if (result.posted > 0) {
-                setCandidates((prev) =>
-                  prev.map((c) => (c.id === id ? { ...c, status: "approved" as const } : c))
-                );
-              } else if (result.error) {
-                console.error("[post] Failed:", result.error);
+                setPostingStatus({ id, message: `投稿成功! (${result.external_post_id})`, type: "success" });
+              } else {
+                setPostingStatus({ id, message: `投稿失敗: ${result.error || "不明なエラー"}`, type: "error" });
               }
+            } catch (postErr) {
+              setPostingStatus({ id, message: `投稿エラー: ${String(postErr)}`, type: "error" });
             }
+          } else {
+            setPostingStatus({ id, message: "投稿をスケジュールしました", type: "success" });
           }
         }
 
-        // 採用後: pending候補が少なければpipelineで自動補充
+        // 採用後: 候補リストを更新
         try {
-          const refreshRes = await fetch("/api/candidates?status=pending");
+          const refreshRes = await fetch("/api/candidates");
           if (refreshRes.ok) {
-            const { candidates: newCandidates } = await refreshRes.json();
-            const pendingCount = (newCandidates || []).length;
-
-            if (pendingCount < 3) {
-              console.log("[auto-replenish] Pending candidates low, running pipeline...");
-              await fetch("/api/cron/pipeline", {
-                headers: { Authorization: "Bearer yut000" },
-              });
-              // pipeline後に再取得
-              const afterRes = await fetch("/api/candidates?status=pending");
-              if (afterRes.ok) {
-                const { candidates: freshCandidates } = await afterRes.json();
-                setCandidates((prev) => {
-                  const existing = prev.filter((c) => c.status !== "pending");
-                  const existingIds = new Set(prev.map((c) => c.id));
-                  const fresh = (freshCandidates || []).filter(
-                    (c: CandidatePost) => !existingIds.has(c.id)
-                  );
-                  return [...existing, ...fresh];
-                });
-              }
-            } else {
-              setCandidates((prev) => {
-                const existing = prev.filter((c) => c.status !== "pending");
-                const existingIds = new Set(prev.map((c) => c.id));
-                const fresh = (newCandidates || []).filter(
-                  (c: CandidatePost) => !existingIds.has(c.id)
-                );
-                return [...existing, ...fresh];
-              });
+            const { candidates: allCandidates } = await refreshRes.json();
+            if (allCandidates) {
+              setCandidates(allCandidates);
             }
           }
         } catch (err) {
@@ -229,6 +209,27 @@ export function CandidateList({ candidates: initial }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* 投稿ステータス通知 */}
+      {postingStatus && (
+        <div
+          className={`p-3 rounded-md text-sm flex items-center justify-between ${
+            postingStatus.type === "success"
+              ? "bg-green-50 text-green-800 border border-green-200"
+              : postingStatus.type === "error"
+                ? "bg-red-50 text-red-800 border border-red-200"
+                : "bg-blue-50 text-blue-800 border border-blue-200"
+          }`}
+        >
+          <span>{postingStatus.message}</span>
+          <button
+            onClick={() => setPostingStatus(null)}
+            className="ml-2 text-xs opacity-60 hover:opacity-100"
+          >
+            x
+          </button>
+        </div>
+      )}
+
       {/* Filter tabs */}
       <div className="flex gap-1 p-1 bg-secondary rounded-lg w-fit">
         {filters.map((f) => (

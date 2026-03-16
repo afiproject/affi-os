@@ -219,7 +219,7 @@ export async function updateCandidateStatus(
   if (error) throw error;
 }
 
-export async function getTopCandidatesForGeneration(limit: number = 5): Promise<CandidatePost[]> {
+export async function getTopCandidatesForGeneration(limit: number = 20): Promise<CandidatePost[]> {
   const db = getAdminClient();
   // デモ/空のvariantsを先に削除（body_textが空またはデモテキストのもの）
   await db
@@ -299,8 +299,7 @@ export async function getScheduledPosts(
         *,
         item:affiliate_items(*),
         variants:candidate_post_variants(*)
-      ),
-      variant:candidate_post_variants(*)
+      )
     `)
     .order("scheduled_at", { ascending: true });
 
@@ -327,8 +326,7 @@ export async function getDuePosts(): Promise<ScheduledPost[]> {
         *,
         item:affiliate_items(*),
         variants:candidate_post_variants(*)
-      ),
-      variant:candidate_post_variants(*)
+      )
     `)
     .eq("status", "scheduled")
     .lte("scheduled_at", now)
@@ -745,10 +743,16 @@ function mapCandidate(row: Record<string, unknown>): CandidatePost {
 
 function mapScheduledPost(row: Record<string, unknown>): ScheduledPost {
   const candidate = row.candidate as Record<string, unknown>;
+  const mappedCandidate = candidate ? mapCandidate(candidate) : undefined;
+  // variant_idがある場合、candidateのvariantsから該当バリアントを取得
+  const variantId = row.variant_id as string | null;
+  const variant = variantId && mappedCandidate?.variants
+    ? mappedCandidate.variants.find((v) => v.id === variantId) || null
+    : null;
   return {
     ...row,
-    candidate: candidate ? mapCandidate(candidate) : undefined,
-    variant: row.variant as CandidatePostVariant,
+    candidate: mappedCandidate,
+    variant: variant as CandidatePostVariant,
   } as unknown as ScheduledPost;
 }
 
