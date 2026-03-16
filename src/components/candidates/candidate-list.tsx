@@ -86,8 +86,14 @@ export function CandidateList({ candidates: initial }: Props) {
         const candidate = candidates.find((c) => c.id === id);
         if (candidate?.item.sample_video_url && !candidate.item.cached_video_url) {
           setCachingVideoId(id);
+          setPostingStatus({ id, message: "動画をキャッシュ中...", type: "info" });
           try {
-            await cacheVideoViaProxy(candidate);
+            const cachedUrl = await cacheVideoViaProxy(candidate);
+            if (cachedUrl) {
+              console.log("[approve] Video cached:", cachedUrl);
+            } else {
+              console.warn("[approve] Video cache failed, continuing without cache");
+            }
           } finally {
             setCachingVideoId(null);
           }
@@ -95,6 +101,7 @@ export function CandidateList({ candidates: initial }: Props) {
       }
 
       // Persist status to DB
+      setPostingStatus((prev) => prev?.id === id ? { id, message: "ステータス更新中...", type: "info" } : prev);
       const statusRes = await fetch("/api/candidates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -102,7 +109,9 @@ export function CandidateList({ candidates: initial }: Props) {
       });
 
       if (!statusRes.ok) {
-        console.error("Status update failed:", await statusRes.text());
+        const errText = await statusRes.text();
+        console.error("[approve] Status update failed:", errText);
+        setPostingStatus({ id, message: `ステータス更新失敗: ${errText}`, type: "error" });
         return;
       }
 
@@ -137,6 +146,7 @@ export function CandidateList({ candidates: initial }: Props) {
               : new Date(Date.now() + 3600000).toISOString();
           }
 
+          setPostingStatus({ id, message: "スケジュール登録中...", type: "info" });
           const schedRes = await fetch("/api/schedule", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -152,12 +162,14 @@ export function CandidateList({ candidates: initial }: Props) {
 
           if (!schedRes.ok) {
             const errText = await schedRes.text();
+            console.error("[approve] Schedule failed:", errText);
             setPostingStatus({ id, message: `スケジュール登録失敗: ${errText}`, type: "error" });
             return;
           }
 
           const schedData = await schedRes.json();
           const scheduledPostId = schedData.scheduled_post?.id;
+          console.log("[approve] Scheduled:", scheduledPostId);
 
           if (scheduleMode === "now" && scheduledPostId) {
             setPostingStatus({ id, message: "Xに投稿中...（動画アップロード含む、最大2分）", type: "info" });
@@ -168,15 +180,20 @@ export function CandidateList({ candidates: initial }: Props) {
                 body: JSON.stringify({ scheduled_post_id: scheduledPostId }),
               });
               const result = await postRes.json();
-              console.log("[post] Result:", result);
+              console.log("[post] Result:", JSON.stringify(result, null, 2));
               if (result.posted > 0) {
-                setPostingStatus({ id, message: `投稿成功! (${result.external_post_id})`, type: "success" });
+                const mediaInfo = result.media_debug?.final_media_id ? " (動画付き)" : " (テキストのみ)";
+                setPostingStatus({ id, message: `投稿成功!${mediaInfo} (${result.external_post_id})`, type: "success" });
               } else {
                 setPostingStatus({ id, message: `投稿失敗: ${result.error || "不明なエラー"}`, type: "error" });
+                console.error("[post] media_debug:", JSON.stringify(result.media_debug, null, 2));
               }
             } catch (postErr) {
+              console.error("[post] Exception:", postErr);
               setPostingStatus({ id, message: `投稿エラー: ${String(postErr)}`, type: "error" });
             }
+          } else if (scheduleMode === "now" && !scheduledPostId) {
+            setPostingStatus({ id, message: "スケジュールIDが取得できませんでした", type: "error" });
           } else {
             setPostingStatus({ id, message: "投稿をスケジュールしました", type: "success" });
           }
@@ -196,7 +213,8 @@ export function CandidateList({ candidates: initial }: Props) {
         }
       }
     } catch (error) {
-      console.error("Action failed:", error);
+      console.error("[approve] Unexpected error:", error);
+      setPostingStatus({ id, message: `エラー: ${String(error)}`, type: "error" });
     }
   }
 

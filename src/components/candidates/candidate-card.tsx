@@ -130,7 +130,7 @@ export function CandidateCard({ candidate, onAction, isCachingVideo }: Props) {
         )}
 
         {/* 動画プレビューモーダル */}
-        {showVideoPreview && candidate.item.sample_video_url && (
+        {showVideoPreview && (candidate.item.cached_video_url || candidate.item.sample_video_url) && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80" onClick={() => setShowVideoPreview(false)}>
             <div className="relative w-full max-w-2xl mx-4" onClick={(e) => e.stopPropagation()}>
               <button
@@ -140,7 +140,7 @@ export function CandidateCard({ candidate, onAction, isCachingVideo }: Props) {
                 <X className="w-6 h-6" />
               </button>
               <video
-                src={candidate.item.sample_video_url}
+                src={candidate.item.cached_video_url || candidate.item.sample_video_url}
                 controls
                 autoPlay
                 className="w-full rounded-lg"

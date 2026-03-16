@@ -32,9 +32,9 @@ export async function POST(request: Request) {
     // FANZA CDN URLの場合、軽量版を最優先でフォールバック
     const urls: string[] = [];
     if (video_url.includes("cc3001.dmm.co.jp")) {
-      // _sm_w（軽量〜6MB）を最優先、次に_mhb_w（中〜30MB）、最後に_dmb_w（高〜60MB）
+      // _mhb_w（中画質〜15MB）を最優先、次に_sm_w（軽量〜6MB）
       const base = video_url.replace(/_(?:sm|mhb|dmb)_w\.mp4$/, "");
-      urls.push(`${base}_sm_w.mp4`, `${base}_mhb_w.mp4`);
+      urls.push(`${base}_mhb_w.mp4`, `${base}_sm_w.mp4`);
     } else {
       urls.push(video_url);
     }

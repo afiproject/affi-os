@@ -377,24 +377,26 @@ export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
     // FANZA CDN: 軽量版を最優先（確実にDLできるサイズ）
     if (videoUrl.includes("_mhb_w.mp4")) {
       urls.push(
-        videoUrl.replace("_mhb_w.mp4", "_sm_w.mp4"),   // 最軽量（~3MB）
-        videoUrl,                                         // 中画質
-        videoUrl.replace("_mhb_w.mp4", "_dmb_w.mp4"),   // 高画質
+        videoUrl,                                         // 中画質（優先）
+        videoUrl.replace("_mhb_w.mp4", "_sm_w.mp4"),   // 軽量フォールバック
       );
     } else if (videoUrl.includes("_dmb_w.mp4")) {
       urls.push(
-        videoUrl.replace("_dmb_w.mp4", "_sm_w.mp4"),
         videoUrl.replace("_dmb_w.mp4", "_mhb_w.mp4"),
         videoUrl,
+        videoUrl.replace("_dmb_w.mp4", "_sm_w.mp4"),
       );
     } else if (videoUrl.includes("_sm_w.mp4")) {
-      urls.push(videoUrl);
+      urls.push(
+        videoUrl.replace("_sm_w.mp4", "_mhb_w.mp4"),   // 中画質を先に試す
+        videoUrl,                                         // 軽量フォールバック
+      );
     } else {
-      // 不明な形式 → sm, mhb, dmbを試行
+      // 不明な形式 → mhb, sm を試行
       const base = videoUrl.replace(/\.mp4$/, "");
       urls.push(
-        base.replace(/_[^_]*$/, "_sm_w") + ".mp4",
         base.replace(/_[^_]*$/, "_mhb_w") + ".mp4",
+        base.replace(/_[^_]*$/, "_sm_w") + ".mp4",
         videoUrl,
       );
     }
@@ -435,8 +437,8 @@ export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
         continue;
       }
 
-      // 15MB超はスキップ（軽量版優先なので通常は3-8MB）
-      if (contentLength > 15 * 1024 * 1024) {
+      // 50MB超はスキップ（中画質_mhb_wは通常10-20MB）
+      if (contentLength > 50 * 1024 * 1024) {
         console.log(`[downloadVideo] Too large (${(contentLength / 1024 / 1024).toFixed(1)}MB), trying next`);
         continue;
       }
