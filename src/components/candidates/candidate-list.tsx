@@ -84,7 +84,7 @@ export function CandidateList({ candidates: initial }: Props) {
       // 承認時: まず動画をブラウザ経由でキャッシュ
       if (action === "approved") {
         const candidate = candidates.find((c) => c.id === id);
-        if (candidate?.item.sample_video_url && !candidate.item.cached_video_url) {
+        if (candidate?.item.sample_video_url) {
           setCachingVideoId(id);
           setPostingStatus({ id, message: "動画をキャッシュ中...", type: "info" });
           try {
