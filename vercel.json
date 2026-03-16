@@ -19,7 +19,11 @@
     },
     {
       "path": "/api/cron/post",
-      "schedule": "0 9 * * *"
+      "schedule": "0 9,11,14 * * *"
+    },
+    {
+      "path": "/api/cron/post",
+      "schedule": "30 12 * * *"
     },
     {
       "path": "/api/cron/analyze",

@@ -18,15 +18,17 @@ export interface ScheduleConstraints {
   night_start: number;
   night_end: number;
   peak_hours: number[];
+  peak_half_hours?: number[];
 }
 
 const DEFAULT_CONSTRAINTS: ScheduleConstraints = {
-  daily_limit: 6,
-  min_interval_minutes: 90,
+  daily_limit: 8,
+  min_interval_minutes: 60,
   allow_night: false,
   night_start: 1,
   night_end: 6,
-  peak_hours: [10, 12, 15, 19, 21],
+  peak_hours: [10, 12, 15, 19, 20, 21, 23],
+  peak_half_hours: [21.5] as number[],  // 21:30
 };
 
 export function findOptimalTimeSlots(
@@ -44,15 +46,24 @@ export function findOptimalTimeSlots(
   // 日の残り予約可能数
   const remaining = Math.min(count, constraints.daily_limit - existingScheduled.length);
 
-  for (const hour of constraints.peak_hours) {
+  // ピーク時間（整数時 + 半端時間）を統合
+  const allPeaks: { hour: number; minute: number }[] = constraints.peak_hours.map((h) => ({ hour: h, minute: 0 }));
+  if (constraints.peak_half_hours) {
+    for (const hh of constraints.peak_half_hours) {
+      allPeaks.push({ hour: Math.floor(hh), minute: (hh % 1) * 60 });
+    }
+  }
+  allPeaks.sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
+
+  for (const peak of allPeaks) {
     if (slots.length >= remaining) break;
 
     // 深夜チェック
-    if (!constraints.allow_night && hour >= constraints.night_start && hour < constraints.night_end) {
+    if (!constraints.allow_night && peak.hour >= constraints.night_start && peak.hour < constraints.night_end) {
       continue;
     }
 
-    const minuteInDay = hour * 60;
+    const minuteInDay = peak.hour * 60 + peak.minute;
 
     // 既存予約との間隔チェック
     const tooClose = occupiedTimes.some(
@@ -61,9 +72,9 @@ export function findOptimalTimeSlots(
 
     if (!tooClose) {
       slots.push({
-        hour,
-        minute: 0,
-        score: constraints.peak_hours.includes(hour) ? 90 : 50,
+        hour: peak.hour,
+        minute: peak.minute,
+        score: 90,
       });
       occupiedTimes.push(minuteInDay);
     }
