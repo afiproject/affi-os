@@ -51,7 +51,7 @@ interface Props {
 export function CandidateCard({ candidate, onAction, isCachingVideo }: Props) {
   // デモバリアントを除外して本物のバリアントだけ使う
   const realVariants = candidate.variants.filter(
-    (v) => v.body_text && !v.body_text.includes("デモ") && !v.body_text.includes("プロンプト:")
+    (v) => v.body_text && !v.body_text.startsWith("[デモ]")
   );
   const selectedVariant = realVariants.find((v) => v.is_selected) || realVariants[0];
   const [postMode, setPostMode] = useState<"A" | "B">("A");

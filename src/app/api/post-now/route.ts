@@ -83,7 +83,7 @@ export async function POST(request: Request) {
       bodyTextLength: bodyText.length,
     });
 
-    if (!bodyText || bodyText.includes("デモ") || bodyText.includes("プロンプト:") || bodyText.includes("プロンプト：")) {
+    if (!bodyText || bodyText.startsWith("[デモ]")) {
       return NextResponse.json({
         success: false,
         error: "投稿テキストがデモ/プロンプト文のため投稿を中止しました。generateを再実行してください。",

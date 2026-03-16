@@ -120,7 +120,7 @@ export function CandidateList({ candidates: initial }: Props) {
         const candidate = candidates.find((c) => c.id === id);
         // デモバリアントを除外して本物だけ使う
         const realVariants = (candidate?.variants || []).filter(
-          (v) => v.body_text && !v.body_text.includes("デモ") && !v.body_text.includes("プロンプト:")
+          (v) => v.body_text && !v.body_text.startsWith("[デモ]")
         );
         const variant = realVariants.find((v) => v.is_selected) || realVariants[0];
         if (candidate) {
