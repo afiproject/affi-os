@@ -857,3 +857,119 @@ export async function getRecentPostedCategories(days: number = 7): Promise<strin
   if (error) throw error;
   return (data || []).map((r) => r.category);
 }
+
+// ==========================================
+// Noimos AI CSV Imports
+// ==========================================
+
+export async function createNoimosImport(params: {
+  filename: string;
+  source?: string;
+  rows_total: number;
+}): Promise<string> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("noimos_imports")
+    .insert({
+      filename: params.filename,
+      source: params.source || "noimos_csv",
+      rows_total: params.rows_total,
+      status: "processing",
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data!.id;
+}
+
+export async function updateNoimosImport(id: string, updates: {
+  rows_processed?: number;
+  rows_failed?: number;
+  status?: string;
+  error_message?: string;
+}): Promise<void> {
+  const db = getAdminClient();
+  const { error } = await db.from("noimos_imports").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function createNoimosImportRow(row: {
+  import_id: string;
+  row_number: number;
+  scheduled_time: string;
+  body_text: string;
+  hashtags?: string[];
+  video_url?: string;
+  thumbnail_url?: string;
+  affiliate_url?: string;
+  category?: string;
+  tags?: string[];
+  post_mode?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<string> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("noimos_import_rows")
+    .insert({
+      import_id: row.import_id,
+      row_number: row.row_number,
+      scheduled_time: row.scheduled_time,
+      body_text: row.body_text,
+      hashtags: row.hashtags || [],
+      video_url: row.video_url || "",
+      thumbnail_url: row.thumbnail_url || "",
+      affiliate_url: row.affiliate_url || "",
+      category: row.category || "",
+      tags: row.tags || [],
+      post_mode: row.post_mode || "A",
+      status: "pending",
+      metadata: row.metadata || {},
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data!.id;
+}
+
+export async function updateNoimosImportRow(id: string, updates: {
+  status?: string;
+  scheduled_post_id?: string;
+  error_message?: string;
+}): Promise<void> {
+  const db = getAdminClient();
+  const { error } = await db.from("noimos_import_rows").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function getNoimosImports(limit: number = 20): Promise<AnyRecord[]> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("noimos_imports")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getNoimosImportRows(importId: string): Promise<AnyRecord[]> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("noimos_import_rows")
+    .select("*")
+    .eq("import_id", importId)
+    .order("row_number", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getPendingNoimosRows(): Promise<AnyRecord[]> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("noimos_import_rows")
+    .select("*")
+    .eq("status", "pending")
+    .order("scheduled_time", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}

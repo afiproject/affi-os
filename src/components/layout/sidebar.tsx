@@ -10,12 +10,14 @@ import {
   BarChart3,
   Settings,
   Zap,
+  Upload,
 } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "ダッシュボード", icon: LayoutDashboard },
   { href: "/candidates", label: "投稿候補", icon: FileText },
   { href: "/queue", label: "予約一覧", icon: Clock },
+  { href: "/import", label: "CSV連携", icon: Upload },
   { href: "/analytics", label: "成績分析", icon: BarChart3 },
   { href: "/settings", label: "設定", icon: Settings },
 ];

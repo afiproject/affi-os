@@ -42,6 +42,11 @@ export async function GET(request: Request) {
     // 「現在時刻を過ぎた scheduled ステータスの投稿」を取得
     const duePosts = await getDuePosts();
 
+    console.log(`[cron/post] Found ${duePosts.length} due posts at ${now.toISOString()}`);
+    for (const p of duePosts) {
+      console.log(`[cron/post] Due: id=${p.id}, scheduled_at=${p.scheduled_at}, candidate=${p.candidate_id}, variant=${p.variant_id}`);
+    }
+
     let postedCount = 0;
     let failedCount = 0;
 

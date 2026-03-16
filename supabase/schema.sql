@@ -249,6 +249,42 @@ CREATE TABLE IF NOT EXISTS error_logs (
 );
 CREATE INDEX IF NOT EXISTS idx_errors_date ON error_logs(created_at DESC);
 
+-- ---------- Noimos AI Imports (CSV連携) ----------
+CREATE TABLE IF NOT EXISTS noimos_imports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL DEFAULT 'noimos_csv',     -- noimos_csv, manual_csv, api
+  rows_total INTEGER NOT NULL DEFAULT 0,
+  rows_processed INTEGER NOT NULL DEFAULT 0,
+  rows_failed INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending',         -- pending, processing, completed, failed
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_noimos_imports_date ON noimos_imports(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS noimos_import_rows (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  import_id UUID NOT NULL REFERENCES noimos_imports(id) ON DELETE CASCADE,
+  row_number INTEGER NOT NULL DEFAULT 0,
+  scheduled_time TEXT NOT NULL,                    -- HH:MM or ISO timestamp
+  body_text TEXT NOT NULL,
+  hashtags TEXT[] NOT NULL DEFAULT '{}',
+  video_url TEXT NOT NULL DEFAULT '',
+  thumbnail_url TEXT NOT NULL DEFAULT '',
+  affiliate_url TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT '',
+  tags TEXT[] NOT NULL DEFAULT '{}',
+  post_mode TEXT NOT NULL DEFAULT 'A',
+  status TEXT NOT NULL DEFAULT 'pending',          -- pending, scheduled, posted, failed, skipped
+  scheduled_post_id UUID REFERENCES scheduled_posts(id),
+  error_message TEXT,
+  metadata JSONB DEFAULT '{}',                     -- Noimos AIからの追加データ（エンゲージメント予測等）
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_noimos_rows_import ON noimos_import_rows(import_id);
+CREATE INDEX IF NOT EXISTS idx_noimos_rows_status ON noimos_import_rows(status);
+
 -- ---------- Updated At Trigger ----------
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$

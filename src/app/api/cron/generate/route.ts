@@ -127,6 +127,8 @@ export async function GET(request: Request) {
     const settings = await getSystemSettings();
     const autoPostEnabled = settings?.auto_post_enabled ?? true;
 
+    console.log(`[generate] Auto-post check: enabled=${autoPostEnabled}, candidates=${candidates.length}, account=${account?.id || "NULL"}`);
+
     if (autoPostEnabled && candidates.length > 0 && account) {
       // 既存スケジュールを取得して最適時間枠を計算
       const existingScheduled = await getScheduledPosts({ status: "scheduled" });
@@ -144,7 +146,10 @@ export async function GET(request: Request) {
           .limit(1)
           .single();
 
-        if (!selectedVariant) continue;
+        if (!selectedVariant) {
+          console.log(`[generate] No selected variant for candidate ${candidate.id}, skipping`);
+          continue;
+        }
 
         // スケジュール時間を決定
         const now = new Date();
@@ -177,7 +182,10 @@ export async function GET(request: Request) {
         });
 
         autoScheduledCount++;
+        console.log(`[generate] Auto-scheduled candidate ${candidate.id} at ${scheduledAt.toISOString()}`);
       }
+    } else if (!account) {
+      console.error(`[generate] No active account found — cannot auto-schedule. Create an account in the accounts table.`);
     }
 
     await completeWorkflow(workflowId, generatedCount);
