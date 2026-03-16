@@ -12,7 +12,12 @@ import {
   startWorkflow,
   completeWorkflow,
   logError,
+  getSystemSettings,
+  createScheduledPost,
+  getScheduledPosts,
+  updateCandidateStatus,
 } from "@/lib/db";
+import { findOptimalTimeSlots } from "@/lib/services/scheduler";
 import { demoItems } from "@/lib/demo-data";
 
 // GET /api/cron/generate — 文面生成ジョブ
@@ -117,6 +122,64 @@ export async function GET(request: Request) {
       }
     }
 
+    // ---- 自動投稿: 承認なしでスケジュール登録 ----
+    let autoScheduledCount = 0;
+    const settings = await getSystemSettings();
+    const autoPostEnabled = settings?.auto_post_enabled ?? true;
+
+    if (autoPostEnabled && candidates.length > 0 && account) {
+      // 既存スケジュールを取得して最適時間枠を計算
+      const existingScheduled = await getScheduledPosts({ status: "scheduled" });
+      const slots = findOptimalTimeSlots(existingScheduled, candidates.length);
+
+      for (let i = 0; i < candidates.length; i++) {
+        const candidate = candidates[i];
+        // is_selected=true の variant を取得
+        const db = (await import("@/lib/supabase/admin")).getAdminClient();
+        const { data: selectedVariant } = await db
+          .from("candidate_post_variants")
+          .select("id")
+          .eq("candidate_id", candidate.id)
+          .eq("is_selected", true)
+          .limit(1)
+          .single();
+
+        if (!selectedVariant) continue;
+
+        // スケジュール時間を決定
+        const now = new Date();
+        const slot = slots[i];
+        let scheduledAt: Date;
+        if (slot) {
+          scheduledAt = new Date(now);
+          scheduledAt.setHours(slot.hour, slot.minute, 0, 0);
+          // 既に過ぎている時間帯なら翌日に設定
+          if (scheduledAt <= now) {
+            scheduledAt.setDate(scheduledAt.getDate() + 1);
+          }
+        } else {
+          // スロットが足りない場合は翌日の10:00
+          scheduledAt = new Date(now);
+          scheduledAt.setDate(scheduledAt.getDate() + 1);
+          scheduledAt.setHours(10, 0, 0, 0);
+        }
+
+        // candidate を approved に変更
+        await updateCandidateStatus(candidate.id, "approved");
+
+        // scheduled_posts に登録
+        await createScheduledPost({
+          candidate_id: candidate.id,
+          account_id: account.id,
+          variant_id: selectedVariant.id,
+          scheduled_at: scheduledAt.toISOString(),
+          post_mode: "A",
+        });
+
+        autoScheduledCount++;
+      }
+    }
+
     await completeWorkflow(workflowId, generatedCount);
 
     return NextResponse.json({
@@ -124,6 +187,8 @@ export async function GET(request: Request) {
       workflow: "generate",
       items_processed: candidates.length,
       variants_generated: generatedCount,
+      auto_scheduled: autoScheduledCount,
+      auto_post_enabled: autoPostEnabled,
       timestamp: new Date().toISOString(),
     });
   } catch (error) {

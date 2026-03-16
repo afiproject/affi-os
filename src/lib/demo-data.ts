@@ -295,6 +295,7 @@ export const demoSystemSettings: SystemSettings = {
   auto_collect_enabled: true,
   auto_score_enabled: true,
   auto_generate_enabled: true,
+  auto_post_enabled: true,
   updated_at: new Date().toISOString(),
 };
 

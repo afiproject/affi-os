@@ -101,6 +101,12 @@ export function SettingsPanel({ system: initialSystem, account: initialAccount, 
                 onChange={(v) => setSystem({ ...system, auto_generate_enabled: v })}
               />
             </SettingRow>
+            <SettingRow label="自動投稿（承認不要）">
+              <ToggleButton
+                value={system.auto_post_enabled}
+                onChange={(v) => setSystem({ ...system, auto_post_enabled: v })}
+              />
+            </SettingRow>
             <SettingRow label="リスク閾値">
               <div className="flex items-center gap-2">
                 <input

@@ -171,6 +171,7 @@ CREATE TABLE IF NOT EXISTS system_settings (
   auto_collect_enabled BOOLEAN NOT NULL DEFAULT true,
   auto_score_enabled BOOLEAN NOT NULL DEFAULT true,
   auto_generate_enabled BOOLEAN NOT NULL DEFAULT true,
+  auto_post_enabled BOOLEAN NOT NULL DEFAULT true,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

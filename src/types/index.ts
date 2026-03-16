@@ -176,6 +176,7 @@ export interface SystemSettings {
   auto_collect_enabled: boolean;
   auto_score_enabled: boolean;
   auto_generate_enabled: boolean;
+  auto_post_enabled: boolean;
   updated_at: string;
 }
 
