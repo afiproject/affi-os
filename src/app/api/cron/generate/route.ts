@@ -53,6 +53,7 @@ export async function GET(request: Request) {
 
   try {
     const provider = createAIProvider();
+    console.log(`[generate] Using AI provider: ${provider.name}`);
     const tones = ["click_bait", "natural", "casual"] as const;
     const labels = ["A", "B", "C"];
 
@@ -193,6 +194,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       workflow: "generate",
+      ai_provider: provider.name,
       items_processed: candidates.length,
       variants_generated: generatedCount,
       auto_scheduled: autoScheduledCount,

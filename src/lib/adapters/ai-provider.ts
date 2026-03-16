@@ -131,9 +131,9 @@ export class GeminiProvider implements AIProvider {
   readonly name = "gemini";
 
   async generateText(prompt: string, systemPrompt?: string): Promise<AIGenerationResult> {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
     if (!apiKey) {
-      console.error("[GeminiProvider] GEMINI_API_KEY is not set");
+      console.error("[GeminiProvider] GEMINI_API_KEY / GOOGLE_AI_API_KEY is not set");
       return this.mockGenerate(prompt);
     }
 
@@ -248,16 +248,40 @@ export class GroqProvider implements AIProvider {
 
 // ---------- Factory ----------
 export function createAIProvider(provider?: string): AIProvider {
-  const p = provider || process.env.AI_PROVIDER || "groq";
-  switch (p) {
-    case "openai":
-      return new OpenAIProvider();
-    case "claude":
-      return new ClaudeProvider();
-    case "gemini":
-      return new GeminiProvider();
-    case "groq":
-    default:
-      return new GroqProvider();
+  const p = provider || process.env.AI_PROVIDER;
+
+  // 明示的に指定されている場合はそれを使用
+  if (p) {
+    switch (p) {
+      case "openai":
+        return new OpenAIProvider();
+      case "claude":
+        return new ClaudeProvider();
+      case "gemini":
+        return new GeminiProvider();
+      case "groq":
+        return new GroqProvider();
+    }
   }
+
+  // AI_PROVIDER未設定の場合、APIキーが存在するプロバイダーを自動選択
+  if (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY) {
+    console.log("[AI] Auto-selected: gemini");
+    return new GeminiProvider();
+  }
+  if (process.env.GROQ_API_KEY) {
+    console.log("[AI] Auto-selected: groq");
+    return new GroqProvider();
+  }
+  if (process.env.ANTHROPIC_API_KEY) {
+    console.log("[AI] Auto-selected: claude");
+    return new ClaudeProvider();
+  }
+  if (process.env.OPENAI_API_KEY) {
+    console.log("[AI] Auto-selected: openai");
+    return new OpenAIProvider();
+  }
+
+  console.error("[AI] No AI provider API key found! Falling back to groq (will use mock)");
+  return new GroqProvider();
 }
