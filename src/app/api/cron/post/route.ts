@@ -10,6 +10,10 @@ import {
   logError,
 } from "@/lib/db";
 
+export const maxDuration = 120;
+// 東京リージョンで実行（FANZA CDNの動画ダウンロードに必要）
+export const preferredRegion = ["hnd1"];
+
 const MAX_RETRIES = 3;
 
 // GET /api/cron/post — 投稿実行ジョブ
@@ -38,6 +42,11 @@ export async function GET(request: Request) {
     // 「現在時刻を過ぎた scheduled ステータスの投稿」を取得
     const duePosts = await getDuePosts();
 
+    console.log(`[cron/post] Found ${duePosts.length} due posts at ${now.toISOString()}`);
+    for (const p of duePosts) {
+      console.log(`[cron/post] Due: id=${p.id}, scheduled_at=${p.scheduled_at}, candidate=${p.candidate_id}, variant=${p.variant_id}`);
+    }
+
     let postedCount = 0;
     let failedCount = 0;
 
@@ -50,15 +59,40 @@ export async function GET(request: Request) {
         continue;
       }
 
-      // 投稿文にアフィリエイトURLを追加
-      const bodyText = post.variant.body_text;
+      // カスタムテキストがあればそれを使う、なければAI生成テキスト
+      const bodyText = post.custom_body_text || post.variant.body_text;
       const hashtags = post.variant.hashtags?.length
         ? "\n" + post.variant.hashtags.join(" ")
         : "";
       const affiliateUrl = post.candidate?.item?.affiliate_url || "";
-      const fullText = `${bodyText}${hashtags}${affiliateUrl ? "\n" + affiliateUrl : ""}`;
+      const sampleVideoUrl = post.candidate?.item?.sample_video_url || "";
+      const cachedVideoUrl = post.candidate?.item?.cached_video_url || "";
+      const postMode = post.post_mode || "A";
 
-      const result = await adapter.post(fullText);
+      // モードに応じてテキスト構成を変える
+      let fullText: string;
+      if (postMode === "B") {
+        // モードB: メインツイートにはリンクを含めない
+        fullText = `${bodyText}${hashtags}`;
+      } else {
+        // モードA: すべてを1ツイートに
+        fullText = `${bodyText}${hashtags}${affiliateUrl ? "\n" + affiliateUrl : ""}`;
+      }
+
+      const thumbnailUrl = post.candidate?.item?.thumbnail_url || "";
+
+      const result = await adapter.post(fullText, {
+        post_mode: postMode as "A" | "B",
+        video_url: sampleVideoUrl || undefined,
+        cached_video_url: cachedVideoUrl || undefined,
+        affiliate_url: affiliateUrl || undefined,
+        thumbnail_url: thumbnailUrl || undefined,
+      });
+
+      // メディアデバッグ情報をログ
+      if (result.media_debug) {
+        console.log(`[cron/post] Media debug for ${post.id}: ${JSON.stringify(result.media_debug)}`);
+      }
 
       if (result.success && result.external_post_id) {
         postedCount++;
@@ -68,6 +102,7 @@ export async function GET(request: Request) {
           status: "posted",
           posted_at: result.posted_at,
           external_post_id: result.external_post_id,
+          reply_post_id: result.reply_post_id,
         });
 
         // 投稿ログを記録

@@ -6,6 +6,7 @@ import {
   getFirstActiveAccount,
   createCandidate,
   getCategoryAvgCtr,
+  getTagPerformance,
   getRecentPostedCategories,
   startWorkflow,
   completeWorkflow,
@@ -54,12 +55,14 @@ export async function GET(request: Request) {
     }
 
     const categoryAvgCtr = await getCategoryAvgCtr();
+    const tagPerformance = await getTagPerformance();
     const recentCategories = await getRecentPostedCategories();
 
     const scored = items.map((item) => {
       const scores = calculateScore(item, {
-        peakHours: [10, 12, 15, 19, 21],
+        peakHours: [10, 12, 15, 19, 20, 21, 23],
         categoryAvgCtr,
+        tagPerformance,
         recentCategories,
       });
       return { item, ...scores };

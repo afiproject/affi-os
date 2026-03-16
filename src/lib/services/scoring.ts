@@ -43,6 +43,7 @@ export function calculateScore(
     recentCategories?: string[];
     recentTitles?: string[];
     categoryAvgCtr?: Record<string, number>;
+    tagPerformance?: Record<string, number>;
     currentHour?: number;
     peakHours?: number[];
   },
@@ -69,6 +70,19 @@ export function calculateScore(
   // 安全性（除外フラグがあれば低い）
   const safety = item.is_excluded ? 10 : 90;
 
+  // タグブースト: 過去に反応が良かったタグを持つアイテムにボーナス
+  let tagBoost = 0;
+  if (context.tagPerformance && item.tags?.length) {
+    const tagScores = item.tags
+      .map((tag) => context.tagPerformance![tag] || 0)
+      .filter((s) => s > 0);
+    if (tagScores.length > 0) {
+      // 上位タグスコアの平均を0-15のボーナスに正規化
+      const avgTagScore = tagScores.reduce((a, b) => a + b, 0) / tagScores.length;
+      tagBoost = Math.min(15, Math.round(avgTagScore * 3));
+    }
+  }
+
   const total = Math.round(
     freshness * weights.freshness +
     popularity * weights.popularity +
@@ -76,7 +90,8 @@ export function calculateScore(
     historicalCtr * weights.historical_ctr +
     timeFitness * weights.time_fitness +
     (100 - duplicateRisk) * weights.duplicate_risk +
-    safety * weights.safety
+    safety * weights.safety +
+    tagBoost
   );
 
   // CTR推定（簡易的）

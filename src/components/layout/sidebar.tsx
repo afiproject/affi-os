@@ -10,12 +10,14 @@ import {
   BarChart3,
   Settings,
   Zap,
+  Upload,
 } from "lucide-react";
 
 const navItems = [
   { href: "/", label: "ダッシュボード", icon: LayoutDashboard },
   { href: "/candidates", label: "投稿候補", icon: FileText },
   { href: "/queue", label: "予約一覧", icon: Clock },
+  { href: "/import", label: "CSV連携", icon: Upload },
   { href: "/analytics", label: "成績分析", icon: BarChart3 },
   { href: "/settings", label: "設定", icon: Settings },
 ];
@@ -67,6 +69,9 @@ export function Sidebar() {
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <div className="w-2 h-2 rounded-full bg-green-500" />
           システム正常稼働
+        </div>
+        <div className="mt-2 text-[10px] text-muted-foreground/60">
+          Powered by FANZA Webサービス
         </div>
       </div>
     </aside>

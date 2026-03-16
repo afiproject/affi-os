@@ -62,10 +62,15 @@ export class DMMAdapter implements AffiliateSourceAdapter {
     }
 
     const hits = options?.limit || 20;
-    let sort = "date";
-    if (options?.sortBy === "popular" || options?.sortBy === "ranking") {
-      sort = "rank";
-    }
+
+    // ソート方法をランダムに変える（多様な候補を収集）
+    const sortOptions = ["date", "rank", "review"];
+    const sort = options?.sortBy === "popular" || options?.sortBy === "ranking"
+      ? "rank"
+      : sortOptions[Math.floor(Math.random() * sortOptions.length)];
+
+    // ページもランダムにずらす（1〜5ページ目）
+    const offset = Math.floor(Math.random() * 5) * hits + 1;
 
     const params = new URLSearchParams({
       api_id: this.apiId,
@@ -75,13 +80,17 @@ export class DMMAdapter implements AffiliateSourceAdapter {
       floor: "videoa",
       hits: String(hits),
       sort,
+      offset: String(offset),
       output: "json",
+      article: "video",        // VR除外（通常動画のみ）
+      article_id: "1",         // 通常動画カテゴリ
     });
 
     if (options?.category) {
       params.set("keyword", options.category);
     }
 
+    console.log(`[DMMAdapter] Fetching: sort=${sort}, offset=${offset}, hits=${hits}`);
     const url = `https://api.dmm.com/affiliate/v3/ItemList?${params.toString()}`;
 
     try {
@@ -100,18 +109,41 @@ export class DMMAdapter implements AffiliateSourceAdapter {
         const tags = [...genres, ...actresses].slice(0, 10);
         const category = genres[0] || "動画";
 
-        // サンプル動画の有無
-        const hasSample = !!(item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306);
+        // VR動画を除外（タイトルやジャンルでVRを含むものをスキップ）
+        const isVR = genres.some((g: string) => g.includes("VR") || g.includes("3D")) ||
+          (item.title || "").includes("【VR】");
+        if (isVR) {
+          console.log(`[DMMAdapter] Skipping VR item: ${item.title}`);
+          continue;
+        }
+
+        // サンプル動画URL: sampleMovieURLから正しいCIDを抽出してCDN URLを構築
+        const contentId = item.content_id || item.product_id || "";
+        const playerUrl = item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306 || "";
+        const hasSample = !!playerUrl;
+
+        // サンプル動画がないアイテムは除外（動画付き投稿ができないため）
+        if (!hasSample) {
+          console.log(`[DMMAdapter] Skipping item without sample video: ${item.title}`);
+          continue;
+        }
+
+        // プレイヤーURLからreal CIDを抽出（content_idとは異なる場合がある）
+        const realCid = extractCidFromPlayerUrl(playerUrl) || contentId;
+        const sampleVideoUrl = realCid ? buildDmmVideoUrl(realCid) : "";
+        if (realCid !== contentId) {
+          console.log(`[DMMAdapter] Real CID for ${contentId}: ${realCid}`);
+        }
 
         // 人気スコア（レビュー数ベース）
         const reviewCount = item.review?.count || 0;
         const reviewAvg = item.review?.average || 0;
-        const popularityScore = Math.min(100, reviewCount * 2 + reviewAvg * 10);
+        const popularityScore = Math.round(Math.min(100, reviewCount * 2 + reviewAvg * 10));
 
         // 新しさスコア（日付ベース）
         const releaseDate = item.date ? new Date(item.date) : new Date();
         const daysSinceRelease = Math.max(0, (Date.now() - releaseDate.getTime()) / (1000 * 60 * 60 * 24));
-        const freshnessScore = Math.max(0, 100 - daysSinceRelease * 2);
+        const freshnessScore = Math.round(Math.max(0, 100 - daysSinceRelease * 2));
 
         items.push({
           id: "",
@@ -122,6 +154,7 @@ export class DMMAdapter implements AffiliateSourceAdapter {
           category,
           tags,
           thumbnail_url: item.imageURL?.large || item.imageURL?.small || "",
+          sample_video_url: sampleVideoUrl,
           affiliate_url: item.affiliateURL || "",
           is_free_trial: hasSample,
           popularity_score: popularityScore,
@@ -138,6 +171,29 @@ export class DMMAdapter implements AffiliateSourceAdapter {
       return [];
     }
   }
+}
+
+/**
+ * sampleMovieURLのプレイヤーURLからreal CIDを抽出
+ * 例: https://www.dmm.co.jp/litevideo/-/part/=/cid=n_1535grace032/... → n_1535grace032
+ */
+function extractCidFromPlayerUrl(playerUrl: string): string {
+  if (!playerUrl) return "";
+  const match = playerUrl.match(/cid=([^/]+)/);
+  return match?.[1] || "";
+}
+
+/**
+ * FANZA CDNの直接動画URLを構築する
+ * パターン: https://cc3001.dmm.co.jp/litevideo/freepv/{first_char}/{3_chars}/{cid}/{cid}_{quality}_w.mp4
+ */
+function buildDmmVideoUrl(contentId: string): string {
+  if (!contentId) return "";
+  const cid = contentId.toLowerCase();
+  const firstChar = cid[0];
+  const threeChars = cid.substring(0, 3);
+  // 高画質から順に試す（ダウンロード時にフォールバック）
+  return `https://cc3001.dmm.co.jp/litevideo/freepv/${firstChar}/${threeChars}/${cid}/${cid}_mhb_w.mp4`;
 }
 
 // ---------- Factory ----------

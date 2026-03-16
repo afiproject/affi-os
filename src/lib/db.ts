@@ -51,6 +51,7 @@ export async function upsertItems(items: Omit<AffiliateItem, "id" | "collected_a
     category: item.category,
     tags: item.tags,
     thumbnail_url: item.thumbnail_url,
+    sample_video_url: item.sample_video_url,
     affiliate_url: item.affiliate_url,
     is_free_trial: item.is_free_trial,
     popularity_score: item.popularity_score,
@@ -83,6 +84,17 @@ export async function getUnscoredItems(): Promise<AffiliateItem[]> {
   // 今日収集されたもので、まだcandidateが作られていないアイテム
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  // 投稿済みアイテムのitem_idを取得（posted_logs → scheduled_posts → candidate_posts → affiliate_items）
+  const { data: postedItems } = await db
+    .from("posted_logs")
+    .select("scheduled_post:scheduled_posts(candidate:candidate_posts(item_id))");
+  const postedItemIds = new Set(
+    (postedItems || [])
+      .map((p: AnyRecord) => p.scheduled_post?.candidate?.item_id)
+      .filter(Boolean)
+  );
+
   const { data, error } = await db
     .from("affiliate_items")
     .select("*, candidate_posts(id)")
@@ -90,10 +102,11 @@ export async function getUnscoredItems(): Promise<AffiliateItem[]> {
     .gte("collected_at", today.toISOString())
     .order("collected_at", { ascending: false });
   if (error) throw error;
-  // candidate_postsが空のものだけ返す
+  // candidate_postsが空 かつ 投稿済みでないものだけ返す
   return (data || []).filter(
     (item: AffiliateItem & { candidate_posts: { id: string }[] }) =>
-      !item.candidate_posts || item.candidate_posts.length === 0
+      (!item.candidate_posts || item.candidate_posts.length === 0) &&
+      !postedItemIds.has(item.id)
   );
 }
 
@@ -214,6 +227,16 @@ export async function getTopCandidatesForGeneration(limit: number = 5): Promise<
     .delete()
     .or("body_text.is.null,body_text.eq.,body_text.like.[デモ]%");
 
+  // 投稿済みアイテムのitem_idを取得
+  const { data: postedItems } = await db
+    .from("posted_logs")
+    .select("scheduled_post:scheduled_posts(candidate:candidate_posts(item_id))");
+  const postedItemIds = new Set(
+    (postedItems || [])
+      .map((p: AnyRecord) => p.scheduled_post?.candidate?.item_id)
+      .filter(Boolean)
+  );
+
   // variantがないcandidateを取得
   const { data, error } = await db
     .from("candidate_posts")
@@ -224,11 +247,15 @@ export async function getTopCandidatesForGeneration(limit: number = 5): Promise<
     `)
     .in("status", ["pending", "scored"])
     .order("total_score", { ascending: false })
-    .limit(limit);
+    .limit(limit * 2);
   if (error) throw error;
   return (data || [])
-    .filter((c: CandidatePost & { variants: { id: string }[] }) => !c.variants || c.variants.length === 0)
-    .map(mapCandidate);
+    .filter((c: CandidatePost & { variants: { id: string }[] }) =>
+      (!c.variants || c.variants.length === 0) &&
+      !postedItemIds.has(c.item_id)
+    )
+    .map(mapCandidate)
+    .slice(0, limit);
 }
 
 // ==========================================
@@ -315,6 +342,8 @@ export async function createScheduledPost(post: {
   account_id: string;
   variant_id: string;
   scheduled_at: string;
+  post_mode?: string;
+  custom_body_text?: string;
 }): Promise<string> {
   const db = getAdminClient();
   const { data, error } = await db
@@ -325,6 +354,8 @@ export async function createScheduledPost(post: {
       variant_id: post.variant_id,
       scheduled_at: post.scheduled_at,
       status: "scheduled",
+      post_mode: post.post_mode || "A",
+      custom_body_text: post.custom_body_text || null,
     })
     .select("id")
     .single();
@@ -338,6 +369,7 @@ export async function updateScheduledPostStatus(
     status: string;
     posted_at?: string;
     external_post_id?: string;
+    reply_post_id?: string;
     error_message?: string;
     retry_count?: number;
   }
@@ -717,6 +749,36 @@ function mapScheduledPost(row: Record<string, unknown>): ScheduledPost {
   } as unknown as ScheduledPost;
 }
 
+// ==========================================
+// Video Cache
+// ==========================================
+
+/** sample_video_urlがあるがcached_video_urlがないアイテムを取得 */
+export async function getItemsNeedingVideoCache(limit: number = 10): Promise<AffiliateItem[]> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("affiliate_items")
+    .select("*")
+    .eq("is_excluded", false)
+    .not("sample_video_url", "is", null)
+    .not("sample_video_url", "eq", "")
+    .or("cached_video_url.is.null,cached_video_url.eq.")
+    .order("collected_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
+
+/** キャッシュ済み動画URLを更新 */
+export async function updateCachedVideoUrl(itemId: string, cachedUrl: string): Promise<void> {
+  const db = getAdminClient();
+  const { error } = await db
+    .from("affiliate_items")
+    .update({ cached_video_url: cachedUrl })
+    .eq("id", itemId);
+  if (error) throw error;
+}
+
 // カテゴリ別の平均CTRを取得（スコアリング用）
 export async function getCategoryAvgCtr(): Promise<Record<string, number>> {
   const db = getAdminClient();
@@ -744,6 +806,45 @@ export async function getCategoryAvgCtr(): Promise<Record<string, number>> {
   return result;
 }
 
+/**
+ * タグ別の平均パフォーマンスを取得（いいね+RT数ベース）
+ * 過去の投稿で反応が良かったタグほど高スコアを返す
+ */
+export async function getTagPerformance(): Promise<Record<string, number>> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("posted_logs")
+    .select("tags, performance_metrics(likes, retweets, impressions)");
+  if (error) throw error;
+
+  const byTag = new Map<string, { totalScore: number; count: number }>();
+  for (const row of data || []) {
+    const tags = (row.tags as string[]) || [];
+    const metrics = (row as unknown as { performance_metrics: { likes: number; retweets: number; impressions: number }[] }).performance_metrics || [];
+    if (metrics.length === 0) continue;
+
+    // エンゲージメントスコア = likes + retweets * 2
+    let engagementScore = 0;
+    for (const m of metrics) {
+      engagementScore += (m.likes || 0) + (m.retweets || 0) * 2;
+    }
+    const avgScore = engagementScore / metrics.length;
+
+    for (const tag of tags) {
+      const existing = byTag.get(tag) || { totalScore: 0, count: 0 };
+      existing.totalScore += avgScore;
+      existing.count++;
+      byTag.set(tag, existing);
+    }
+  }
+
+  const result: Record<string, number> = {};
+  for (const [tag, stats] of byTag) {
+    result[tag] = stats.count > 0 ? stats.totalScore / stats.count : 0;
+  }
+  return result;
+}
+
 // 最近投稿したカテゴリを取得（重複判定用）
 export async function getRecentPostedCategories(days: number = 7): Promise<string[]> {
   const db = getAdminClient();
@@ -755,4 +856,120 @@ export async function getRecentPostedCategories(days: number = 7): Promise<strin
     .gte("posted_at", since.toISOString());
   if (error) throw error;
   return (data || []).map((r) => r.category);
+}
+
+// ==========================================
+// Noimos AI CSV Imports
+// ==========================================
+
+export async function createNoimosImport(params: {
+  filename: string;
+  source?: string;
+  rows_total: number;
+}): Promise<string> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("noimos_imports")
+    .insert({
+      filename: params.filename,
+      source: params.source || "noimos_csv",
+      rows_total: params.rows_total,
+      status: "processing",
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data!.id;
+}
+
+export async function updateNoimosImport(id: string, updates: {
+  rows_processed?: number;
+  rows_failed?: number;
+  status?: string;
+  error_message?: string;
+}): Promise<void> {
+  const db = getAdminClient();
+  const { error } = await db.from("noimos_imports").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function createNoimosImportRow(row: {
+  import_id: string;
+  row_number: number;
+  scheduled_time: string;
+  body_text: string;
+  hashtags?: string[];
+  video_url?: string;
+  thumbnail_url?: string;
+  affiliate_url?: string;
+  category?: string;
+  tags?: string[];
+  post_mode?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<string> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("noimos_import_rows")
+    .insert({
+      import_id: row.import_id,
+      row_number: row.row_number,
+      scheduled_time: row.scheduled_time,
+      body_text: row.body_text,
+      hashtags: row.hashtags || [],
+      video_url: row.video_url || "",
+      thumbnail_url: row.thumbnail_url || "",
+      affiliate_url: row.affiliate_url || "",
+      category: row.category || "",
+      tags: row.tags || [],
+      post_mode: row.post_mode || "A",
+      status: "pending",
+      metadata: row.metadata || {},
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return data!.id;
+}
+
+export async function updateNoimosImportRow(id: string, updates: {
+  status?: string;
+  scheduled_post_id?: string;
+  error_message?: string;
+}): Promise<void> {
+  const db = getAdminClient();
+  const { error } = await db.from("noimos_import_rows").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function getNoimosImports(limit: number = 20): Promise<AnyRecord[]> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("noimos_imports")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getNoimosImportRows(importId: string): Promise<AnyRecord[]> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("noimos_import_rows")
+    .select("*")
+    .eq("import_id", importId)
+    .order("row_number", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getPendingNoimosRows(): Promise<AnyRecord[]> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("noimos_import_rows")
+    .select("*")
+    .eq("status", "pending")
+    .order("scheduled_time", { ascending: true });
+  if (error) throw error;
+  return data || [];
 }

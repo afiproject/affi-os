@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS affiliate_items (
   category TEXT NOT NULL DEFAULT '',
   tags TEXT[] NOT NULL DEFAULT '{}',
   thumbnail_url TEXT NOT NULL DEFAULT '',
+  sample_video_url TEXT NOT NULL DEFAULT '',
   affiliate_url TEXT NOT NULL,
   is_free_trial BOOLEAN NOT NULL DEFAULT false,
   popularity_score INTEGER NOT NULL DEFAULT 0,
@@ -108,9 +109,12 @@ CREATE TABLE IF NOT EXISTS scheduled_posts (
   scheduled_at TIMESTAMPTZ NOT NULL,
   posted_at TIMESTAMPTZ,
   status TEXT NOT NULL DEFAULT 'scheduled',   -- scheduled, pending_approval, posted, failed, paused, cancelled
+  post_mode TEXT NOT NULL DEFAULT 'A',          -- A: 動画+テキスト+リンク1ツイート, B: 動画+テキスト→リプライにリンク
+  custom_body_text TEXT,                        -- ユーザーが手入力した文面（NULLならAI生成を使用）
   retry_count INTEGER NOT NULL DEFAULT 0,
   error_message TEXT,
   external_post_id TEXT,
+  reply_post_id TEXT,                           -- モードB時のリプライツイートID
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -167,6 +171,7 @@ CREATE TABLE IF NOT EXISTS system_settings (
   auto_collect_enabled BOOLEAN NOT NULL DEFAULT true,
   auto_score_enabled BOOLEAN NOT NULL DEFAULT true,
   auto_generate_enabled BOOLEAN NOT NULL DEFAULT true,
+  auto_post_enabled BOOLEAN NOT NULL DEFAULT true,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -243,6 +248,42 @@ CREATE TABLE IF NOT EXISTS error_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_errors_date ON error_logs(created_at DESC);
+
+-- ---------- Noimos AI Imports (CSV連携) ----------
+CREATE TABLE IF NOT EXISTS noimos_imports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  filename TEXT NOT NULL DEFAULT '',
+  source TEXT NOT NULL DEFAULT 'noimos_csv',     -- noimos_csv, manual_csv, api
+  rows_total INTEGER NOT NULL DEFAULT 0,
+  rows_processed INTEGER NOT NULL DEFAULT 0,
+  rows_failed INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending',         -- pending, processing, completed, failed
+  error_message TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_noimos_imports_date ON noimos_imports(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS noimos_import_rows (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  import_id UUID NOT NULL REFERENCES noimos_imports(id) ON DELETE CASCADE,
+  row_number INTEGER NOT NULL DEFAULT 0,
+  scheduled_time TEXT NOT NULL,                    -- HH:MM or ISO timestamp
+  body_text TEXT NOT NULL,
+  hashtags TEXT[] NOT NULL DEFAULT '{}',
+  video_url TEXT NOT NULL DEFAULT '',
+  thumbnail_url TEXT NOT NULL DEFAULT '',
+  affiliate_url TEXT NOT NULL DEFAULT '',
+  category TEXT NOT NULL DEFAULT '',
+  tags TEXT[] NOT NULL DEFAULT '{}',
+  post_mode TEXT NOT NULL DEFAULT 'A',
+  status TEXT NOT NULL DEFAULT 'pending',          -- pending, scheduled, posted, failed, skipped
+  scheduled_post_id UUID REFERENCES scheduled_posts(id),
+  error_message TEXT,
+  metadata JSONB DEFAULT '{}',                     -- Noimos AIからの追加データ（エンゲージメント予測等）
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_noimos_rows_import ON noimos_import_rows(import_id);
+CREATE INDEX IF NOT EXISTS idx_noimos_rows_status ON noimos_import_rows(status);
 
 -- ---------- Updated At Trigger ----------
 CREATE OR REPLACE FUNCTION update_updated_at()
