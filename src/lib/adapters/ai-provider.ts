@@ -218,42 +218,67 @@ export class GroqProvider implements AIProvider {
   }
 }
 
+// ---------- Fallback Provider（失敗時に次のプロバイダーに自動切替） ----------
+class FallbackProvider implements AIProvider {
+  readonly name: string;
+  private providers: AIProvider[];
+
+  constructor(providers: AIProvider[]) {
+    this.providers = providers;
+    this.name = providers.map((p) => p.name).join("→");
+  }
+
+  async generateText(prompt: string, systemPrompt?: string): Promise<AIGenerationResult> {
+    for (let i = 0; i < this.providers.length; i++) {
+      try {
+        const result = await this.providers[i].generateText(prompt, systemPrompt);
+        return result;
+      } catch (err) {
+        console.warn(`[AI] ${this.providers[i].name} failed: ${String(err)}`);
+        if (i === this.providers.length - 1) throw err;
+        console.log(`[AI] Falling back to ${this.providers[i + 1].name}`);
+      }
+    }
+    throw new Error("All AI providers failed");
+  }
+}
+
 // ---------- Factory ----------
 export function createAIProvider(provider?: string): AIProvider {
+  // 利用可能なプロバイダーを全て収集（フォールバックチェーン用）
+  const available: AIProvider[] = [];
+
   const p = provider || process.env.AI_PROVIDER;
 
-  // 明示的に指定されている場合はそれを使用
+  // 明示的指定があればそれを最優先
   if (p) {
     switch (p) {
-      case "openai":
-        return new OpenAIProvider();
-      case "claude":
-        return new ClaudeProvider();
-      case "gemini":
-        return new GeminiProvider();
-      case "groq":
-        return new GroqProvider();
+      case "gemini": available.push(new GeminiProvider()); break;
+      case "groq": available.push(new GroqProvider()); break;
+      case "claude": available.push(new ClaudeProvider()); break;
+      case "openai": available.push(new OpenAIProvider()); break;
     }
   }
 
-  // AI_PROVIDER未設定の場合、APIキーが存在するプロバイダーを自動選択
-  if (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY) {
-    console.log("[AI] Auto-selected: gemini");
-    return new GeminiProvider();
+  // 残りのプロバイダーをフォールバックとして追加
+  const added = new Set(available.map((a) => a.name));
+  if (!added.has("gemini") && (process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY)) {
+    available.push(new GeminiProvider());
   }
-  if (process.env.GROQ_API_KEY) {
-    console.log("[AI] Auto-selected: groq");
-    return new GroqProvider();
+  if (!added.has("groq") && process.env.GROQ_API_KEY) {
+    available.push(new GroqProvider());
   }
-  if (process.env.ANTHROPIC_API_KEY) {
-    console.log("[AI] Auto-selected: claude");
-    return new ClaudeProvider();
+  if (!added.has("claude") && process.env.ANTHROPIC_API_KEY) {
+    available.push(new ClaudeProvider());
   }
-  if (process.env.OPENAI_API_KEY) {
-    console.log("[AI] Auto-selected: openai");
-    return new OpenAIProvider();
+  if (!added.has("openai") && process.env.OPENAI_API_KEY) {
+    available.push(new OpenAIProvider());
   }
 
-  console.error("[AI] No AI provider API key found! Falling back to groq (will use mock)");
-  return new GroqProvider();
+  if (available.length === 0) {
+    throw new Error("[AI] No AI provider API key found. Set GROQ_API_KEY, GEMINI_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY.");
+  }
+
+  console.log(`[AI] Provider chain: ${available.map((a) => a.name).join(" → ")}`);
+  return new FallbackProvider(available);
 }
