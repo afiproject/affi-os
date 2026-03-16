@@ -222,10 +222,11 @@ export async function updateCandidateStatus(
 export async function getTopCandidatesForGeneration(limit: number = 20): Promise<CandidatePost[]> {
   const db = getAdminClient();
   // デモ/空のvariantsを先に削除（body_textが空またはデモテキストのもの）
-  await db
-    .from("candidate_post_variants")
-    .delete()
-    .or("body_text.is.null,body_text.eq.,body_text.like.[デモ]%");
+  // PostgRESTの.or()で[デモ]のブラケットが壊れるため、個別に削除
+  await db.from("candidate_post_variants").delete().is("body_text", null);
+  await db.from("candidate_post_variants").delete().eq("body_text", "");
+  await db.from("candidate_post_variants").delete().like("body_text", "%デモ%");
+  await db.from("candidate_post_variants").delete().like("body_text", "%プロンプト:%");
 
   // バリアントなしのapproved候補をpendingに戻す + 関連scheduled_postsも削除
   const { data: allCandidates } = await db
