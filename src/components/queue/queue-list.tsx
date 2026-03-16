@@ -121,7 +121,7 @@ export function QueueList({ scheduled: initial }: Props) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="text-sm font-semibold truncate">
-                          {post.candidate.item.title}
+                          {post.candidate?.item?.title || "（タイトルなし）"}
                         </h3>
                         <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ${getStatusColor(post.status)}`}>
                           <Icon className="w-3 h-3" />
@@ -129,14 +129,18 @@ export function QueueList({ scheduled: initial }: Props) {
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground line-clamp-2 whitespace-pre-line">
-                        {post.variant.body_text}
+                        {post.custom_body_text || post.variant?.body_text || "（投稿文なし）"}
                       </p>
                       <div className="flex items-center gap-2 mt-2 text-[10px] text-muted-foreground">
                         <Badge variant="outline" className="text-[10px]">
-                          {post.candidate.item.category}
+                          {post.candidate?.item?.category || "不明"}
                         </Badge>
-                        <span>案{post.variant.variant_label}</span>
-                        <span>{getToneLabel(post.variant.tone)}</span>
+                        {post.variant && (
+                          <>
+                            <span>案{post.variant.variant_label}</span>
+                            <span>{getToneLabel(post.variant.tone)}</span>
+                          </>
+                        )}
                         <span>{formatDate(post.scheduled_at)}</span>
                       </div>
                     </div>
