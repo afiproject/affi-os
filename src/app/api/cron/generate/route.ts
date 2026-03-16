@@ -151,22 +151,22 @@ export async function GET(request: Request) {
           continue;
         }
 
-        // スケジュール時間を決定
+        // スケジュール時間を決定（slot.hourはUTC）
         const now = new Date();
         const slot = slots[i];
         let scheduledAt: Date;
         if (slot) {
           scheduledAt = new Date(now);
-          scheduledAt.setHours(slot.hour, slot.minute, 0, 0);
+          scheduledAt.setUTCHours(slot.hour, slot.minute, 0, 0);
           // 既に過ぎている時間帯なら翌日に設定
           if (scheduledAt <= now) {
-            scheduledAt.setDate(scheduledAt.getDate() + 1);
+            scheduledAt.setUTCDate(scheduledAt.getUTCDate() + 1);
           }
         } else {
-          // スロットが足りない場合は翌日の10:00
+          // スロットが足りない場合は翌日のJST 10:00 = UTC 01:00
           scheduledAt = new Date(now);
-          scheduledAt.setDate(scheduledAt.getDate() + 1);
-          scheduledAt.setHours(10, 0, 0, 0);
+          scheduledAt.setUTCDate(scheduledAt.getUTCDate() + 1);
+          scheduledAt.setUTCHours(1, 0, 0, 0);
         }
 
         // candidate を approved に変更
