@@ -133,8 +133,7 @@ export class GeminiProvider implements AIProvider {
   async generateText(prompt: string, systemPrompt?: string): Promise<AIGenerationResult> {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_AI_API_KEY;
     if (!apiKey) {
-      console.error("[GeminiProvider] GEMINI_API_KEY / GOOGLE_AI_API_KEY is not set");
-      return this.mockGenerate(prompt);
+      throw new Error("[GeminiProvider] GEMINI_API_KEY / GOOGLE_AI_API_KEY is not set");
     }
 
     const start = Date.now();
@@ -160,8 +159,7 @@ export class GeminiProvider implements AIProvider {
     const data = await res.json();
 
     if (!res.ok || data.error) {
-      console.error("[GeminiProvider] API error:", JSON.stringify(data));
-      return this.mockGenerate(prompt);
+      throw new Error(`[GeminiProvider] API error: ${JSON.stringify(data.error || data)}`);
     }
 
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
@@ -176,18 +174,6 @@ export class GeminiProvider implements AIProvider {
       provider: "gemini",
     };
   }
-
-  private async mockGenerate(prompt: string): Promise<AIGenerationResult> {
-    await new Promise((r) => setTimeout(r, 100));
-    return {
-      text: `[デモ] Gemini生成文面。プロンプト: ${prompt.slice(0, 50)}...`,
-      input_tokens: prompt.length,
-      output_tokens: 50,
-      duration_ms: 100,
-      model: "demo-mock",
-      provider: "gemini",
-    };
-  }
 }
 
 // ---------- Groq Provider (無料・クレカ不要) ----------
@@ -197,8 +183,7 @@ export class GroqProvider implements AIProvider {
   async generateText(prompt: string, systemPrompt?: string): Promise<AIGenerationResult> {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
-      console.error("[GroqProvider] GROQ_API_KEY is not set");
-      return this.mockGenerate(prompt);
+      throw new Error("[GroqProvider] GROQ_API_KEY is not set");
     }
 
     const start = Date.now();
@@ -219,8 +204,7 @@ export class GroqProvider implements AIProvider {
     const data = await res.json();
 
     if (!res.ok || data.error) {
-      console.error("[GroqProvider] API error:", JSON.stringify(data));
-      return this.mockGenerate(prompt);
+      throw new Error(`[GroqProvider] API error: ${JSON.stringify(data.error || data)}`);
     }
 
     return {
@@ -229,18 +213,6 @@ export class GroqProvider implements AIProvider {
       output_tokens: data.usage?.completion_tokens || 0,
       duration_ms: Date.now() - start,
       model: data.model || model,
-      provider: "groq",
-    };
-  }
-
-  private async mockGenerate(prompt: string): Promise<AIGenerationResult> {
-    await new Promise((r) => setTimeout(r, 100));
-    return {
-      text: `[デモ] Groq生成文面。プロンプト: ${prompt.slice(0, 50)}...`,
-      input_tokens: prompt.length,
-      output_tokens: 50,
-      duration_ms: 100,
-      model: "demo-mock",
       provider: "groq",
     };
   }
