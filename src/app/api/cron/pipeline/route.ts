@@ -64,6 +64,7 @@ export async function GET(request: Request) {
     const candidates = await getCandidates({ status: "pending" });
     // スコア上位N件を自動承認して投稿
     const topCandidates = candidates
+      .filter((c) => c.variants && c.variants.length > 0 && c.variants.some((v) => v.body_text))
       .sort((a, b) => b.total_score - a.total_score)
       .slice(0, AUTO_POST_COUNT);
 
