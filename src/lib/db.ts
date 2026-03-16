@@ -84,6 +84,17 @@ export async function getUnscoredItems(): Promise<AffiliateItem[]> {
   // 今日収集されたもので、まだcandidateが作られていないアイテム
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  // 投稿済みアイテムのitem_idを取得（posted_logs → scheduled_posts → candidate_posts → affiliate_items）
+  const { data: postedItems } = await db
+    .from("posted_logs")
+    .select("scheduled_post:scheduled_posts(candidate:candidate_posts(item_id))");
+  const postedItemIds = new Set(
+    (postedItems || [])
+      .map((p: AnyRecord) => p.scheduled_post?.candidate?.item_id)
+      .filter(Boolean)
+  );
+
   const { data, error } = await db
     .from("affiliate_items")
     .select("*, candidate_posts(id)")
@@ -91,10 +102,11 @@ export async function getUnscoredItems(): Promise<AffiliateItem[]> {
     .gte("collected_at", today.toISOString())
     .order("collected_at", { ascending: false });
   if (error) throw error;
-  // candidate_postsが空のものだけ返す
+  // candidate_postsが空 かつ 投稿済みでないものだけ返す
   return (data || []).filter(
     (item: AffiliateItem & { candidate_posts: { id: string }[] }) =>
-      !item.candidate_posts || item.candidate_posts.length === 0
+      (!item.candidate_posts || item.candidate_posts.length === 0) &&
+      !postedItemIds.has(item.id)
   );
 }
 
@@ -215,6 +227,16 @@ export async function getTopCandidatesForGeneration(limit: number = 5): Promise<
     .delete()
     .or("body_text.is.null,body_text.eq.,body_text.like.[デモ]%");
 
+  // 投稿済みアイテムのitem_idを取得
+  const { data: postedItems } = await db
+    .from("posted_logs")
+    .select("scheduled_post:scheduled_posts(candidate:candidate_posts(item_id))");
+  const postedItemIds = new Set(
+    (postedItems || [])
+      .map((p: AnyRecord) => p.scheduled_post?.candidate?.item_id)
+      .filter(Boolean)
+  );
+
   // variantがないcandidateを取得
   const { data, error } = await db
     .from("candidate_posts")
@@ -225,11 +247,15 @@ export async function getTopCandidatesForGeneration(limit: number = 5): Promise<
     `)
     .in("status", ["pending", "scored"])
     .order("total_score", { ascending: false })
-    .limit(limit);
+    .limit(limit * 2);
   if (error) throw error;
   return (data || [])
-    .filter((c: CandidatePost & { variants: { id: string }[] }) => !c.variants || c.variants.length === 0)
-    .map(mapCandidate);
+    .filter((c: CandidatePost & { variants: { id: string }[] }) =>
+      (!c.variants || c.variants.length === 0) &&
+      !postedItemIds.has(c.item_id)
+    )
+    .map(mapCandidate)
+    .slice(0, limit);
 }
 
 // ==========================================
