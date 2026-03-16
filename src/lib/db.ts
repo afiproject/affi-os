@@ -806,6 +806,45 @@ export async function getCategoryAvgCtr(): Promise<Record<string, number>> {
   return result;
 }
 
+/**
+ * タグ別の平均パフォーマンスを取得（いいね+RT数ベース）
+ * 過去の投稿で反応が良かったタグほど高スコアを返す
+ */
+export async function getTagPerformance(): Promise<Record<string, number>> {
+  const db = getAdminClient();
+  const { data, error } = await db
+    .from("posted_logs")
+    .select("tags, performance_metrics(likes, retweets, impressions)");
+  if (error) throw error;
+
+  const byTag = new Map<string, { totalScore: number; count: number }>();
+  for (const row of data || []) {
+    const tags = (row.tags as string[]) || [];
+    const metrics = (row as unknown as { performance_metrics: { likes: number; retweets: number; impressions: number }[] }).performance_metrics || [];
+    if (metrics.length === 0) continue;
+
+    // エンゲージメントスコア = likes + retweets * 2
+    let engagementScore = 0;
+    for (const m of metrics) {
+      engagementScore += (m.likes || 0) + (m.retweets || 0) * 2;
+    }
+    const avgScore = engagementScore / metrics.length;
+
+    for (const tag of tags) {
+      const existing = byTag.get(tag) || { totalScore: 0, count: 0 };
+      existing.totalScore += avgScore;
+      existing.count++;
+      byTag.set(tag, existing);
+    }
+  }
+
+  const result: Record<string, number> = {};
+  for (const [tag, stats] of byTag) {
+    result[tag] = stats.count > 0 ? stats.totalScore / stats.count : 0;
+  }
+  return result;
+}
+
 // 最近投稿したカテゴリを取得（重複判定用）
 export async function getRecentPostedCategories(days: number = 7): Promise<string[]> {
   const db = getAdminClient();
