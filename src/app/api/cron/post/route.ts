@@ -10,7 +10,7 @@ import {
   logError,
 } from "@/lib/db";
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 // 東京リージョンで実行（FANZA CDNの動画ダウンロードに必要）
 export const preferredRegion = ["hnd1"];
 

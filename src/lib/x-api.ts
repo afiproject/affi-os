@@ -393,7 +393,7 @@ export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
     try {
       console.log(`[downloadVideo] Trying: ${url}`);
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
+      const timeout = setTimeout(() => controller.abort(), 60000); // 60秒タイムアウト
       const res = await fetch(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -414,9 +414,9 @@ export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
         console.log(`[downloadVideo] Not a video (${contentType}): ${url}`);
         continue;
       }
-      // Content-Lengthで事前にサイズチェック（15MB超はスキップ、次の軽量版を試す）
+      // Content-Lengthで事前にサイズチェック（50MB超はスキップ）
       const contentLength = parseInt(res.headers.get("content-length") || "0", 10);
-      if (contentLength > 15 * 1024 * 1024) {
+      if (contentLength > 50 * 1024 * 1024) {
         console.log(`[downloadVideo] Too large (${(contentLength / 1024 / 1024).toFixed(1)}MB), skipping: ${url}`);
         continue;
       }
