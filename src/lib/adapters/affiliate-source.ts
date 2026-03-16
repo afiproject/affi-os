@@ -138,12 +138,12 @@ export class DMMAdapter implements AffiliateSourceAdapter {
         // 人気スコア（レビュー数ベース）
         const reviewCount = item.review?.count || 0;
         const reviewAvg = item.review?.average || 0;
-        const popularityScore = Math.min(100, reviewCount * 2 + reviewAvg * 10);
+        const popularityScore = Math.round(Math.min(100, reviewCount * 2 + reviewAvg * 10));
 
         // 新しさスコア（日付ベース）
         const releaseDate = item.date ? new Date(item.date) : new Date();
         const daysSinceRelease = Math.max(0, (Date.now() - releaseDate.getTime()) / (1000 * 60 * 60 * 24));
-        const freshnessScore = Math.max(0, 100 - daysSinceRelease * 2);
+        const freshnessScore = Math.round(Math.max(0, 100 - daysSinceRelease * 2));
 
         items.push({
           id: "",
