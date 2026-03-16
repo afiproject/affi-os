@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GET as collectHandler } from "@/app/api/cron/collect/route";
 import { GET as scoreHandler } from "@/app/api/cron/score/route";
 import { GET as generateHandler } from "@/app/api/cron/generate/route";
+import { GET as postHandler } from "@/app/api/cron/post/route";
 
 export const maxDuration = 120;
 export const preferredRegion = ["hnd1"];
@@ -44,6 +45,15 @@ export async function GET(request: Request) {
     console.log("[pipeline] generate done:", JSON.stringify(results.generate));
   } catch (e) {
     results.generate = { error: String(e) };
+  }
+
+  // Step 4: Post (スケジュール済みの投稿を実行)
+  try {
+    const postRes = await postHandler(request);
+    results.post = await postRes.json();
+    console.log("[pipeline] post done:", JSON.stringify(results.post));
+  } catch (e) {
+    results.post = { error: String(e) };
   }
 
   return NextResponse.json({
