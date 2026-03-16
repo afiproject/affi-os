@@ -169,20 +169,41 @@ export function CandidateList({ candidates: initial }: Props) {
           }
         }
 
-        // 採用後に新しい候補を取得してリストを更新
+        // 採用後: pending候補が少なければpipelineで自動補充
         try {
           const refreshRes = await fetch("/api/candidates?status=pending");
           if (refreshRes.ok) {
             const { candidates: newCandidates } = await refreshRes.json();
-            setCandidates((prev) => {
-              // 既存のapproved/rejectedを保持しつつ、新しいpending候補を追加
-              const existing = prev.filter((c) => c.status !== "pending");
-              const existingIds = new Set(prev.map((c) => c.id));
-              const fresh = (newCandidates || []).filter(
-                (c: CandidatePost) => !existingIds.has(c.id)
-              );
-              return [...existing, ...fresh];
-            });
+            const pendingCount = (newCandidates || []).length;
+
+            if (pendingCount < 3) {
+              console.log("[auto-replenish] Pending candidates low, running pipeline...");
+              await fetch("/api/cron/pipeline", {
+                headers: { Authorization: "Bearer yut000" },
+              });
+              // pipeline後に再取得
+              const afterRes = await fetch("/api/candidates?status=pending");
+              if (afterRes.ok) {
+                const { candidates: freshCandidates } = await afterRes.json();
+                setCandidates((prev) => {
+                  const existing = prev.filter((c) => c.status !== "pending");
+                  const existingIds = new Set(prev.map((c) => c.id));
+                  const fresh = (freshCandidates || []).filter(
+                    (c: CandidatePost) => !existingIds.has(c.id)
+                  );
+                  return [...existing, ...fresh];
+                });
+              }
+            } else {
+              setCandidates((prev) => {
+                const existing = prev.filter((c) => c.status !== "pending");
+                const existingIds = new Set(prev.map((c) => c.id));
+                const fresh = (newCandidates || []).filter(
+                  (c: CandidatePost) => !existingIds.has(c.id)
+                );
+                return [...existing, ...fresh];
+              });
+            }
           }
         } catch (err) {
           console.warn("Failed to refresh candidates:", err);
