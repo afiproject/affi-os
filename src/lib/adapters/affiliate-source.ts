@@ -192,8 +192,8 @@ function buildDmmVideoUrl(contentId: string): string {
   const cid = contentId.toLowerCase();
   const firstChar = cid[0];
   const threeChars = cid.substring(0, 3);
-  // 高画質から順に試す（ダウンロード時にフォールバック）
-  return `https://cc3001.dmm.co.jp/litevideo/freepv/${firstChar}/${threeChars}/${cid}/${cid}_mhb_w.mp4`;
+  // 軽量版（_sm_w）を優先保存。プロキシ/投稿時にフォールバックあり
+  return `https://cc3001.dmm.co.jp/litevideo/freepv/${firstChar}/${threeChars}/${cid}/${cid}_sm_w.mp4`;
 }
 
 // ---------- Factory ----------

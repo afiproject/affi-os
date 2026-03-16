@@ -25,9 +25,17 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { candidate_id, account_id, variant_id, scheduled_at, post_mode, custom_body_text } = body;
 
-  if (!candidate_id || !variant_id || !scheduled_at) {
+  if (!candidate_id || !scheduled_at) {
     return NextResponse.json(
-      { error: "candidate_id, variant_id, scheduled_at required" },
+      { error: "candidate_id, scheduled_at required" },
+      { status: 400 }
+    );
+  }
+
+  // variant_idかcustom_body_textのどちらかが必要
+  if (!variant_id && !custom_body_text) {
+    return NextResponse.json(
+      { error: "variant_id or custom_body_text required" },
       { status: 400 }
     );
   }

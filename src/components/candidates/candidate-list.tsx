@@ -109,7 +109,13 @@ export function CandidateList({ candidates: initial }: Props) {
       if (action === "approved") {
         const candidate = candidates.find((c) => c.id === id);
         const variant = candidate?.variants.find((v) => v.is_selected) || candidate?.variants[0];
-        if (candidate && variant) {
+        if (candidate) {
+          // バリアントがない場合、custom_body_textが必須
+          if (!variant && !options?.custom_body_text) {
+            console.error("[approve] No variant and no custom text - cannot post");
+            return;
+          }
+
           // 投稿時間の決定
           let scheduledAt: string;
           const scheduleMode = options?.schedule_mode || "now";
@@ -135,7 +141,7 @@ export function CandidateList({ candidates: initial }: Props) {
             body: JSON.stringify({
               candidate_id: id,
               account_id: candidate.account_id,
-              variant_id: variant.id,
+              variant_id: variant?.id,
               scheduled_at: scheduledAt,
               post_mode: options?.post_mode || "A",
               custom_body_text: options?.custom_body_text,

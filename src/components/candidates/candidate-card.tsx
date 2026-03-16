@@ -51,7 +51,8 @@ interface Props {
 export function CandidateCard({ candidate, onAction, isCachingVideo }: Props) {
   const selectedVariant = candidate.variants.find((v) => v.is_selected) || candidate.variants[0];
   const [postMode, setPostMode] = useState<"A" | "B">("A");
-  const [useCustomText, setUseCustomText] = useState(false);
+  const hasVariants = candidate.variants.length > 0;
+  const [useCustomText, setUseCustomText] = useState(!hasVariants);
   const [customText, setCustomText] = useState("");
   const [showApproveForm, setShowApproveForm] = useState(false);
   const [showVideoPreview, setShowVideoPreview] = useState(false);
@@ -302,12 +303,13 @@ export function CandidateCard({ candidate, onAction, isCachingVideo }: Props) {
               <label className="text-xs font-medium mb-1 block">投稿テキスト</label>
               <div className="flex gap-2 mb-1">
                 <button
-                  onClick={() => setUseCustomText(false)}
+                  onClick={() => hasVariants && setUseCustomText(false)}
+                  disabled={!hasVariants}
                   className={`text-[11px] px-2 py-1 rounded ${
                     !useCustomText ? "bg-primary text-primary-foreground" : "bg-secondary"
-                  }`}
+                  } ${!hasVariants ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
-                  AI生成を使う
+                  AI生成を使う{!hasVariants && "（未生成）"}
                 </button>
                 <button
                   onClick={() => {

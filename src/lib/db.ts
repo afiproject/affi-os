@@ -340,23 +340,26 @@ export async function getDuePosts(): Promise<ScheduledPost[]> {
 export async function createScheduledPost(post: {
   candidate_id: string;
   account_id: string;
-  variant_id: string;
+  variant_id?: string;
   scheduled_at: string;
   post_mode?: string;
   custom_body_text?: string;
 }): Promise<string> {
   const db = getAdminClient();
+  const insertData: Record<string, unknown> = {
+    candidate_id: post.candidate_id,
+    account_id: post.account_id,
+    scheduled_at: post.scheduled_at,
+    status: "scheduled",
+    post_mode: post.post_mode || "A",
+    custom_body_text: post.custom_body_text || null,
+  };
+  if (post.variant_id) {
+    insertData.variant_id = post.variant_id;
+  }
   const { data, error } = await db
     .from("scheduled_posts")
-    .insert({
-      candidate_id: post.candidate_id,
-      account_id: post.account_id,
-      variant_id: post.variant_id,
-      scheduled_at: post.scheduled_at,
-      status: "scheduled",
-      post_mode: post.post_mode || "A",
-      custom_body_text: post.custom_body_text || null,
-    })
+    .insert(insertData)
     .select("id")
     .single();
   if (error) throw error;

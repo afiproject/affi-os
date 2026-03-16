@@ -29,13 +29,14 @@ export async function POST(request: Request) {
     // サーバーサイドで動画をダウンロード（CORS制限なし）
     console.log(`[proxy-video] Downloading: ${video_url}`);
 
-    // FANZA CDN URLの場合、複数品質をフォールバック
-    const urls = [video_url];
-    if (video_url.includes("cc3001.dmm.co.jp") && video_url.includes("_mhb_w.mp4")) {
-      urls.push(
-        video_url.replace("_mhb_w.mp4", "_dmb_w.mp4"),
-        video_url.replace("_mhb_w.mp4", "_sm_w.mp4")
-      );
+    // FANZA CDN URLの場合、軽量版を最優先でフォールバック
+    const urls: string[] = [];
+    if (video_url.includes("cc3001.dmm.co.jp")) {
+      // _sm_w（軽量〜6MB）を最優先、次に_mhb_w（中〜30MB）、最後に_dmb_w（高〜60MB）
+      const base = video_url.replace(/_(?:sm|mhb|dmb)_w\.mp4$/, "");
+      urls.push(`${base}_sm_w.mp4`, `${base}_mhb_w.mp4`);
+    } else {
+      urls.push(video_url);
     }
 
     let videoBuffer: Buffer | null = null;
@@ -49,6 +50,12 @@ export async function POST(request: Request) {
         });
         if (!res.ok) {
           console.log(`[proxy-video] ${res.status} for ${url}`);
+          continue;
+        }
+        // Content-Lengthで事前にサイズチェック（巨大ファイルのDLを回避）
+        const contentLength = parseInt(res.headers.get("content-length") || "0", 10);
+        if (contentLength > MAX_VIDEO_SIZE) {
+          console.log(`[proxy-video] Too large (${contentLength} bytes), skipping: ${url}`);
           continue;
         }
         const arrayBuffer = await res.arrayBuffer();
