@@ -11,6 +11,17 @@ export interface PostResult {
   reply_post_id?: string;
   error_message?: string;
   posted_at: string;
+  media_debug?: {
+    video_url_used?: string;
+    video_download_ok?: boolean;
+    video_download_bytes?: number;
+    video_upload_ok?: boolean;
+    video_upload_error?: string;
+    thumbnail_fallback?: boolean;
+    thumbnail_upload_ok?: boolean;
+    thumbnail_upload_error?: string;
+    final_media_id?: string;
+  };
 }
 
 export interface PostingAdapter {
@@ -64,19 +75,27 @@ export class XPostingAdapter implements PostingAdapter {
 
     console.log(`[XPostingAdapter] Starting post: mode=${postMode}, videoUrl=${videoUrl || "(none)"}, cachedVideoUrl=${cachedVideoUrl || "(none)"}, thumbnailUrl=${thumbnailUrl || "(none)"}, textLength=${text.length}`);
 
+    // 診断情報を収集
+    const debug: PostResult["media_debug"] = {};
+
     // 動画がある場合はアップロード（キャッシュURLを優先）
     let mediaId: string | undefined;
     const effectiveVideoUrl = cachedVideoUrl || videoUrl;
     if (effectiveVideoUrl) {
+      debug.video_url_used = effectiveVideoUrl;
       console.log(`[XPostingAdapter] Downloading video: ${effectiveVideoUrl}${cachedVideoUrl ? " (cached)" : ""}`);
       const videoBuffer = await downloadVideo(effectiveVideoUrl);
+      debug.video_download_ok = !!videoBuffer;
+      debug.video_download_bytes = videoBuffer?.length || 0;
       if (videoBuffer) {
         console.log(`[XPostingAdapter] Uploading video (${videoBuffer.length} bytes)`);
         const uploadResult = await uploadVideo(videoBuffer);
+        debug.video_upload_ok = uploadResult.success;
         if (uploadResult.success && uploadResult.media_id) {
           mediaId = uploadResult.media_id;
           console.log(`[XPostingAdapter] Video uploaded: media_id=${mediaId}`);
         } else {
+          debug.video_upload_error = uploadResult.error;
           console.error(`[XPostingAdapter] Video upload failed: ${uploadResult.error}`);
         }
       }
@@ -84,15 +103,20 @@ export class XPostingAdapter implements PostingAdapter {
 
     // 動画が使えなかった場合、サムネ画像をフォールバックで添付
     if (!mediaId && thumbnailUrl) {
+      debug.thumbnail_fallback = true;
       console.log(`[XPostingAdapter] Video unavailable, using thumbnail: ${thumbnailUrl}`);
       const imgResult = await uploadImageFromUrl(thumbnailUrl);
+      debug.thumbnail_upload_ok = imgResult.success;
       if (imgResult.success && imgResult.media_id) {
         mediaId = imgResult.media_id;
         console.log(`[XPostingAdapter] Thumbnail uploaded: media_id=${mediaId}`);
       } else {
+        debug.thumbnail_upload_error = imgResult.error;
         console.error(`[XPostingAdapter] Thumbnail upload failed: ${imgResult.error}`);
       }
     }
+
+    debug.final_media_id = mediaId;
 
     if (postMode === "B" && affiliateUrl) {
       // モードB: 動画+テキスト → リプライにリンク
@@ -103,6 +127,7 @@ export class XPostingAdapter implements PostingAdapter {
           success: false,
           error_message: mainResult.error,
           posted_at: new Date().toISOString(),
+          media_debug: debug,
         };
       }
 
@@ -116,6 +141,7 @@ export class XPostingAdapter implements PostingAdapter {
         external_post_id: mainResult.tweet_id,
         reply_post_id: replyResult.success ? replyResult.tweet_id : undefined,
         posted_at: new Date().toISOString(),
+        media_debug: debug,
       };
     } else {
       // モードA: 動画+テキスト+リンクを1ツイート
@@ -126,6 +152,7 @@ export class XPostingAdapter implements PostingAdapter {
           success: true,
           external_post_id: result.tweet_id,
           posted_at: new Date().toISOString(),
+          media_debug: debug,
         };
       }
 
@@ -133,6 +160,7 @@ export class XPostingAdapter implements PostingAdapter {
         success: false,
         error_message: result.error,
         posted_at: new Date().toISOString(),
+        media_debug: debug,
       };
     }
   }

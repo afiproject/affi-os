@@ -132,6 +132,7 @@ export async function POST(request: Request) {
         posted: 1,
         failed: 0,
         external_post_id: result.external_post_id,
+        media_debug: result.media_debug,
       });
     } else {
       const newRetryCount = ((post.retry_count as number) || 0) + 1;
@@ -152,6 +153,7 @@ export async function POST(request: Request) {
         posted: 0,
         failed: 1,
         error: result.error_message,
+        media_debug: result.media_debug,
       });
     }
   } catch (error) {
