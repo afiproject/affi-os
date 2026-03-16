@@ -122,6 +122,12 @@ export class DMMAdapter implements AffiliateSourceAdapter {
         const playerUrl = item.sampleMovieURL?.size_720_480 || item.sampleMovieURL?.size_476_306 || "";
         const hasSample = !!playerUrl;
 
+        // サンプル動画がないアイテムは除外（動画付き投稿ができないため）
+        if (!hasSample) {
+          console.log(`[DMMAdapter] Skipping item without sample video: ${item.title}`);
+          continue;
+        }
+
         // プレイヤーURLからreal CIDを抽出（content_idとは異なる場合がある）
         const realCid = extractCidFromPlayerUrl(playerUrl) || contentId;
         const sampleVideoUrl = realCid ? buildDmmVideoUrl(realCid) : "";

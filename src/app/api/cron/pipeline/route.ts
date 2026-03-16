@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { GET as collectHandler } from "@/app/api/cron/collect/route";
+import { GET as scoreHandler } from "@/app/api/cron/score/route";
+import { GET as generateHandler } from "@/app/api/cron/generate/route";
 
 export const maxDuration = 120;
 export const preferredRegion = ["hnd1"];
@@ -14,14 +17,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const baseUrl = new URL(request.url).origin;
-  const headers = { Authorization: `Bearer ${process.env.CRON_SECRET}` };
-
   const results: Record<string, unknown> = {};
 
-  // Step 1: Collect
+  // Step 1: Collect — 各routeのGET関数を直接呼び出し
   try {
-    const collectRes = await fetch(`${baseUrl}/api/cron/collect`, { headers });
+    const collectRes = await collectHandler(request);
     results.collect = await collectRes.json();
     console.log("[pipeline] collect done:", JSON.stringify(results.collect));
   } catch (e) {
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
   // Step 2: Score
   try {
-    const scoreRes = await fetch(`${baseUrl}/api/cron/score`, { headers });
+    const scoreRes = await scoreHandler(request);
     results.score = await scoreRes.json();
     console.log("[pipeline] score done:", JSON.stringify(results.score));
   } catch (e) {
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
   // Step 3: Generate
   try {
-    const generateRes = await fetch(`${baseUrl}/api/cron/generate`, { headers });
+    const generateRes = await generateHandler(request);
     results.generate = await generateRes.json();
     console.log("[pipeline] generate done:", JSON.stringify(results.generate));
   } catch (e) {

@@ -8,7 +8,7 @@ X(Twitter)自動アフィリエイト投稿システム。Next.js 15 + Supabase 
 2. ユーザーは管理画面で候補を確認・承認するだけ
 3. Cronで毎日自動実行（collect → score → generate → post）
 
-## 現在の状況（2026-03-15 時点）
+## 現在の状況（2026-03-16 時点）
 
 ### ✅ 動作確認済み
 - X投稿（テキスト + アフィリエイトリンク）→ 成功
@@ -62,7 +62,7 @@ fetch('/api/test-dmm-video', {headers: {'Authorization': 'Bearer yut000'}}).then
 ```
 → `region: hnd1` かつ CDN URLの`status: 200`を確認
 
-### 今回のセッション（3/15）で行った修正
+### セッション（3/15）の修正
 
 | 修正内容 | ファイル | 状態 |
 |---------|--------|------|
@@ -76,6 +76,17 @@ fetch('/api/test-dmm-video', {headers: {'Authorization': 'Bearer yut000'}}).then
 | `/api/cron/pipeline` 統合エンドポイント追加 | pipeline/route.ts | ✅ push済み（ただし内部呼び出しが壊れている） |
 | `/api/test-dmm-video` 診断エンドポイント追加 | test-dmm-video/route.ts | ✅ push済み |
 
+### セッション（3/16）の修正
+
+| 修正内容 | ファイル | 状態 |
+|---------|--------|------|
+| `/api/cron/pipeline` を直接import方式に修正（内部fetch廃止） | pipeline/route.ts | ✅ |
+| 収集時にサンプル動画なしのアイテムを除外 | affiliate-source.ts | ✅ |
+| 動画ダウンロードに30秒タイムアウト追加 | x-api.ts | ✅ |
+| 投稿フローのログを強化（問題追跡用） | posting.ts | ✅ |
+| フッターに「Powered by FANZA Webサービス」追加 | sidebar.tsx | ✅ |
+| 投稿文カスタム入力機能（承認時に自分で編集可能） | candidate-card.tsx | ✅ 既に実装済みだった |
+
 ### 判明した技術的事実
 
 1. **`preferredRegion`（ルート単位）はVercelで効かない** → `vercel.json`の`"regions"`で全関数を東京に強制する必要がある
@@ -83,7 +94,7 @@ fetch('/api/test-dmm-video', {headers: {'Authorization': 'Bearer yut000'}}).then
 3. **FANZA CDNは日本国外からのアクセスを完全ブロック（403）** → 東京リージョン必須
 4. **東京リージョン + 正しいCIDなら200 OK（video/mp4）** → ダウンロード自体は可能
 5. **VR動画はsampleMovieURLが空** → サンプル動画がない
-6. **`/api/cron/pipeline`の内部fetch呼び出しがHTMLを返す** → 個別にcollect→score→generateを呼ぶ必要あり
+6. **`/api/cron/pipeline`の内部fetch呼び出しがHTMLを返す** → **修正済み**: 直接import方式に変更
 
 ### DBクリーンアップSQL（全データ削除する場合）
 ```sql
@@ -93,22 +104,12 @@ TRUNCATE posted_logs, scheduled_posts, ai_generation_logs, candidate_post_varian
 
 ## まだやっていないこと（優先順）
 
-### 1. 🔴 動画付きX投稿の完成（最優先）
-上記「次回の確認手順」に従って原因を特定し、動画付き投稿を実現する。
-- VR動画除外 or 非VRフィルタの追加が必要かもしれない
-- Vercel Function Logsでの失敗箇所の特定が最優先
+### 1. 🔴 動画付きX投稿の動作確認
+コード修正は完了。デプロイ後に以下を確認：
+- DBを一度クリーンアップ → pipeline実行 → 採用 → Xに動画付きで投稿されるか確認
+- Vercel Function Logsで `[XPostingAdapter]`、`[downloadVideo]` のログを確認
 
-### 2. 🟡 pipeline統合エンドポイントの修正
-`/api/cron/pipeline`の内部fetch呼び出しがHTMLを返す問題。
-直接ロジックをimportして呼び出す方式に変更する必要あり。
-
-### 3. 🟡 投稿文カスタム入力機能
-ユーザーが承認時に投稿文を自分で編集・入力できるようにする。
-
-### 4. 🟢 クレジット表示の実装
-affi-osサイトのフッターに「Powered by FANZA Webサービス」を追加。
-
-### 5. 🟢 Cronスケジュールの動作確認
+### 2. 🟢 Cronスケジュールの動作確認
 Vercel Cronが毎日自動で動くか翌日に確認。
 
 ## 手動テスト手順（Console F12）
@@ -139,7 +140,7 @@ fetch('/api/test-dmm-video', {headers: {'Authorization': 'Bearer yut000'}}).then
 ### クレジット表示義務
 DMM APIを使う場合、affi-osのWebサイト上に以下のクレジットを表示する必要がある（利用規約）：
 > **Powered by FANZA Webサービス**
-→ **未対応。後で対応が必要。**
+→ **対応済み**: サイドバーのフッターに表示
 
 ## ブランチ情報
 - 開発ブランチ: `claude/affi-os-automation-F0hsx`

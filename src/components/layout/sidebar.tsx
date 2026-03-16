@@ -68,6 +68,9 @@ export function Sidebar() {
           <div className="w-2 h-2 rounded-full bg-green-500" />
           システム正常稼働
         </div>
+        <div className="mt-2 text-[10px] text-muted-foreground/60">
+          Powered by FANZA Webサービス
+        </div>
       </div>
     </aside>
   );

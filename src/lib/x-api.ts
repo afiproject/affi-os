@@ -398,13 +398,17 @@ export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
   for (const url of urls) {
     try {
       console.log(`[downloadVideo] Trying: ${url}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000); // 30秒タイムアウト
       const res = await fetch(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
           "Referer": "https://www.dmm.co.jp/",
           "Accept": "*/*",
         },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
       if (!res.ok) {
         console.log(`[downloadVideo] ${res.status} for ${url}`);
         continue;

@@ -62,6 +62,8 @@ export class XPostingAdapter implements PostingAdapter {
     const affiliateUrl = options?.affiliate_url;
     const thumbnailUrl = options?.thumbnail_url;
 
+    console.log(`[XPostingAdapter] Starting post: mode=${postMode}, videoUrl=${videoUrl || "(none)"}, cachedVideoUrl=${cachedVideoUrl || "(none)"}, thumbnailUrl=${thumbnailUrl || "(none)"}, textLength=${text.length}`);
+
     // 動画がある場合はアップロード（キャッシュURLを優先）
     let mediaId: string | undefined;
     const effectiveVideoUrl = cachedVideoUrl || videoUrl;
