@@ -247,7 +247,7 @@ export async function updateCandidateStatus(
 export async function getTopCandidatesForGeneration(limit: number = 20): Promise<CandidatePost[]> {
   const db = getAdminClient();
 
-  // 全候補をバリアント付きで取得（pending, scored, approved全て対象）
+  // pending/scored候補を優先取得（approvedは既にvariantがあるはず）
   const { data: allCandidates, error: fetchError } = await db
     .from("candidate_posts")
     .select(`
@@ -255,9 +255,9 @@ export async function getTopCandidatesForGeneration(limit: number = 20): Promise
       item:affiliate_items(*),
       variants:candidate_post_variants(*)
     `)
-    .in("status", ["pending", "scored", "approved"])
+    .in("status", ["pending", "scored"])
     .order("total_score", { ascending: false })
-    .limit(limit * 2);
+    .limit(limit * 3);
   if (fetchError) throw fetchError;
 
   // JS側で判定: 本物のバリアント（デモ/空でない）を持たない候補を抽出
@@ -274,20 +274,15 @@ export async function getTopCandidatesForGeneration(limit: number = 20): Promise
     return realVariants.length === 0;
   });
 
-  console.log(`[generate] Found ${needsGeneration.length} candidates needing generation out of ${(allCandidates || []).length} total`);
+  console.log(`[generate] Found ${needsGeneration.length} pending candidates needing generation out of ${(allCandidates || []).length} total`);
 
-  // デモバリアントをID指定で確実に削除 & ステータスをpendingに戻す
+  // デモバリアントをID指定で確実に削除
   for (const c of needsGeneration) {
     const variants = ((c as AnyRecord).variants || []) as AnyRecord[];
     const demoIds = variants.map((v: AnyRecord) => v.id as string);
     if (demoIds.length > 0) {
       await db.from("candidate_post_variants").delete().in("id", demoIds);
       console.log(`[generate] Deleted ${demoIds.length} demo variants for candidate ${c.id}`);
-    }
-    if ((c as AnyRecord).status === "approved") {
-      await db.from("scheduled_posts").delete().eq("candidate_id", c.id);
-      await db.from("candidate_posts").update({ status: "pending" }).eq("id", c.id);
-      console.log(`[generate] Reset approved candidate ${c.id} to pending`);
     }
   }
 

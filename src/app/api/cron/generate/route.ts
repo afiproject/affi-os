@@ -74,12 +74,12 @@ export async function GET(request: Request) {
     // variantが未生成の候補を取得（URLパラメータでlimit指定可能）
     const url = new URL(request.url, "http://localhost");
     const genLimit = parseInt(url.searchParams.get("limit") || "50", 10);
-    // quick=1: 1トーンのみ・ハッシュタグなしで高速生成（refresh用）
-    const quickMode = url.searchParams.get("quick") === "1";
-    const activeTones = quickMode ? (["click_bait"] as const) : tones;
-    const activeLabels = quickMode ? ["A"] : labels;
+    // full=1: 3トーン+ハッシュタグ生成（デフォルトは1トーンで全候補カバー優先）
+    const fullMode = url.searchParams.get("full") === "1";
+    const activeTones = fullMode ? tones : (["click_bait"] as const);
+    const activeLabels = fullMode ? labels : ["A"];
 
-    console.log(`[generate] Mode: ${quickMode ? "quick (1 tone, no hashtags)" : "full (3 tones + hashtags)"}, limit: ${genLimit}`);
+    console.log(`[generate] Mode: ${fullMode ? "full (3 tones + hashtags)" : "quick (1 tone, max coverage)"}, limit: ${genLimit}`);
 
     const candidates = await getTopCandidatesForGeneration(genLimit);
     let generatedCount = 0;
@@ -156,7 +156,7 @@ export async function GET(request: Request) {
 
         // ハッシュタグ生成（quickモードではスキップして速度を稼ぐ）
         let hashtags: string[] = [];
-        if (!quickMode) {
+        if (fullMode) {
           const hashtagResult = await callAIWithRetry(buildHashtagPrompt(candidate.item, 3));
           if (hashtagResult) {
             hashtags = hashtagResult.text
