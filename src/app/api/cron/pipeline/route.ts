@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { GET as collectHandler } from "@/app/api/cron/collect/route";
+import { GET as cacheVideosHandler } from "@/app/api/cron/cache-videos/route";
 import { GET as scoreHandler } from "@/app/api/cron/score/route";
 import { GET as generateHandler } from "@/app/api/cron/generate/route";
 import {
@@ -47,6 +48,18 @@ export async function GET(request: Request) {
 
   console.log(`[pipeline] Elapsed after collect: ${((Date.now() - pipelineStart) / 1000).toFixed(1)}s`);
 
+  // Step 1.5: Cache Videos (FANZA CDN → Supabase Storage)
+  try {
+    const cacheRes = await cacheVideosHandler(request);
+    results.cache_videos = await cacheRes.json();
+    console.log("[pipeline] cache-videos done:", JSON.stringify(results.cache_videos));
+  } catch (e) {
+    results.cache_videos = { error: String(e) };
+    console.error("[pipeline] cache-videos FAILED:", String(e));
+  }
+
+  console.log(`[pipeline] Elapsed after cache-videos: ${((Date.now() - pipelineStart) / 1000).toFixed(1)}s`);
+
   // Step 2: Score
   try {
     const scoreRes = await scoreHandler(request);
@@ -71,12 +84,6 @@ export async function GET(request: Request) {
 
   const elapsedAfterGenerate = (Date.now() - pipelineStart) / 1000;
   console.log(`[pipeline] Elapsed after generate: ${elapsedAfterGenerate.toFixed(1)}s`);
-
-  // 残り時間が少ない場合（180秒以上経過）、動画スキップモードにする
-  const skipVideo = elapsedAfterGenerate > 180;
-  if (skipVideo) {
-    console.log("[pipeline] WARNING: Running low on time, will skip video upload and use thumbnails only");
-  }
 
   // Step 4: 自動承認 → 即時投稿
   try {
@@ -131,9 +138,8 @@ export async function GET(request: Request) {
 
         const result = await adapter.post(fullText, {
           post_mode: "A",
-          // 時間不足の場合は動画をスキップしてサムネのみ
-          video_url: skipVideo ? undefined : (sampleVideoUrl || undefined),
-          cached_video_url: skipVideo ? undefined : (cachedVideoUrl || undefined),
+          video_url: sampleVideoUrl || undefined,
+          cached_video_url: cachedVideoUrl || undefined,
           affiliate_url: affiliateUrl || undefined,
           thumbnail_url: thumbnailUrl || undefined,
         });

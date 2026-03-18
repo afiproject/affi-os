@@ -82,21 +82,29 @@ export class XPostingAdapter implements PostingAdapter {
 
     // 動画がある場合はアップロード（キャッシュURLを優先）
     let mediaId: string | undefined;
+    const isCached = !!cachedVideoUrl;
     const effectiveVideoUrl = cachedVideoUrl || videoUrl;
     if (effectiveVideoUrl) {
       debug.video_url_used = effectiveVideoUrl;
-      console.log(`[XPostingAdapter] Downloading video: ${effectiveVideoUrl}${cachedVideoUrl ? " (cached)" : ""}`);
+      console.log(`[XPostingAdapter] Downloading video: ${effectiveVideoUrl}${isCached ? " (cached, already trimmed)" : ""}`);
       const videoBuffer = await downloadVideo(effectiveVideoUrl);
       debug.video_download_ok = !!videoBuffer;
       debug.video_download_bytes = videoBuffer?.length || 0;
       if (videoBuffer) {
-        // 動画の中間部分を切り抜き（失敗時は元動画をそのまま使用）
-        console.log(`[XPostingAdapter] Trimming video to middle section...`);
-        const trimmedBuffer = await trimVideoToMiddle(videoBuffer);
-        debug.video_trimmed = trimmedBuffer.length !== videoBuffer.length;
-        debug.video_trimmed_bytes = trimmedBuffer.length;
-        console.log(`[XPostingAdapter] Uploading video (${trimmedBuffer.length} bytes${debug.video_trimmed ? ", trimmed" : ", untrimmed"})`);
-        const uploadResult = await uploadVideo(trimmedBuffer);
+        // キャッシュ済み動画はcache-videosで既にトリミング済みなのでスキップ
+        let uploadBuffer: Buffer;
+        if (isCached) {
+          console.log(`[XPostingAdapter] Using cached video as-is (${videoBuffer.length} bytes)`);
+          uploadBuffer = videoBuffer;
+          debug.video_trimmed = false;
+        } else {
+          console.log(`[XPostingAdapter] Trimming video to middle section...`);
+          uploadBuffer = await trimVideoToMiddle(videoBuffer);
+          debug.video_trimmed = uploadBuffer.length !== videoBuffer.length;
+        }
+        debug.video_trimmed_bytes = uploadBuffer.length;
+        console.log(`[XPostingAdapter] Uploading video to X (${uploadBuffer.length} bytes${debug.video_trimmed ? ", trimmed" : ""})`);
+        const uploadResult = await uploadVideo(uploadBuffer);
         debug.video_upload_ok = uploadResult.success;
         if (uploadResult.success && uploadResult.media_id) {
           mediaId = uploadResult.media_id;
@@ -105,7 +113,11 @@ export class XPostingAdapter implements PostingAdapter {
           debug.video_upload_error = uploadResult.error;
           console.error(`[XPostingAdapter] Video upload failed: ${uploadResult.error}`);
         }
+      } else {
+        console.error(`[XPostingAdapter] Video download FAILED for: ${effectiveVideoUrl}`);
       }
+    } else {
+      console.log(`[XPostingAdapter] No video URL available, will use thumbnail`);
     }
 
     // 動画が使えなかった場合、サムネ画像をフォールバックで添付

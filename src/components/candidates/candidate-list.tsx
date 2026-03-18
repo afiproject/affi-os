@@ -243,7 +243,18 @@ export function CandidateList({ candidates: initial }: Props) {
               const result = await postRes.json();
               console.log("[post] Result:", JSON.stringify(result, null, 2));
               if (result.posted > 0) {
-                const mediaInfo = result.media_debug?.final_media_id ? " (動画付き)" : " (テキストのみ)";
+                const debug = result.media_debug;
+                let mediaInfo = "";
+                if (debug?.thumbnail_fallback) {
+                  const reason = debug.video_upload_error || (debug.video_download_ok === false ? "動画DL失敗" : "動画なし");
+                  mediaInfo = ` (サムネ画像: ${reason})`;
+                } else if (debug?.final_media_id && debug?.video_upload_ok) {
+                  mediaInfo = " (動画付き)";
+                } else if (debug?.final_media_id) {
+                  mediaInfo = " (メディア付き)";
+                } else {
+                  mediaInfo = " (テキストのみ)";
+                }
                 setPostingStatus({ id, message: `投稿成功!${mediaInfo} (${result.external_post_id})`, type: "success" });
               } else {
                 setPostingStatus({ id, message: `投稿失敗: ${result.error || "不明なエラー"}`, type: "error" });
