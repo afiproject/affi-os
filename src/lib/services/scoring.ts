@@ -53,15 +53,15 @@ export function calculateScore(
   const popularity = item.popularity_score;
   const freeTrial = item.is_free_trial ? 90 : 30;
 
-  // 過去の同カテゴリCTR
+  // 過去の同カテゴリCTR（データなし時は楽観的に75）
   const historicalCtr = context.categoryAvgCtr?.[item.category]
     ? Math.min(100, (context.categoryAvgCtr[item.category] / 5) * 100)
-    : 50;
+    : 75;
 
-  // 時間帯適性
+  // 時間帯適性（オフピークでもベース70）
   const currentHour = context.currentHour ?? new Date().getHours();
   const peakHours = context.peakHours ?? [10, 12, 15, 19, 21];
-  const timeFitness = peakHours.includes(currentHour) ? 90 : 50;
+  const timeFitness = peakHours.includes(currentHour) ? 95 : 70;
 
   // 重複リスク（最近同じカテゴリが多いとリスク上昇）
   const recentSameCategory = context.recentCategories?.filter((c) => c === item.category).length ?? 0;
@@ -83,7 +83,7 @@ export function calculateScore(
     }
   }
 
-  const total = Math.round(
+  const rawTotal =
     freshness * weights.freshness +
     popularity * weights.popularity +
     freeTrial * weights.free_trial +
@@ -91,8 +91,10 @@ export function calculateScore(
     timeFitness * weights.time_fitness +
     (100 - duplicateRisk) * weights.duplicate_risk +
     safety * weights.safety +
-    tagBoost
-  );
+    tagBoost;
+
+  // スコアを体感的に分かりやすいレンジに調整（60-100帯に分布）
+  const total = Math.min(100, Math.round(rawTotal * 1.15 + 5));
 
   // CTR推定（簡易的）
   const estimatedCtr = parseFloat(((total / 100) * 5).toFixed(2));
