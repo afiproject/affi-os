@@ -54,6 +54,39 @@ export function CandidateList({ candidates: initial }: Props) {
   const [filter, setFilter] = useState<FilterStatus>("all");
   const [cachingVideoId, setCachingVideoId] = useState<string | null>(null);
   const [postingStatus, setPostingStatus] = useState<{id: string; message: string; type: "info" | "success" | "error"} | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  async function handleRefreshCandidates() {
+    setIsRefreshing(true);
+    setPostingStatus({ id: "__refresh", message: "投稿候補を更新中...（収集→スコアリング→文面生成、最大2分）", type: "info" });
+    try {
+      const res = await fetch("/api/refresh-candidates", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        // 候補リストを再取得
+        const refreshRes = await fetch("/api/candidates");
+        if (refreshRes.ok) {
+          const { candidates: allCandidates } = await refreshRes.json();
+          if (allCandidates) {
+            setCandidates(allCandidates);
+          }
+        }
+        const generated = data.results?.generate?.variants_generated || 0;
+        const collected = data.results?.collect?.items_collected || 0;
+        setPostingStatus({
+          id: "__refresh",
+          message: `更新完了! ${collected}件収集、${generated}件の投稿文を生成しました（${data.elapsed_seconds}秒）`,
+          type: "success",
+        });
+      } else {
+        setPostingStatus({ id: "__refresh", message: "更新に失敗しました", type: "error" });
+      }
+    } catch (err) {
+      setPostingStatus({ id: "__refresh", message: `更新エラー: ${String(err)}`, type: "error" });
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   const filtered =
     filter === "all" ? candidates : candidates.filter((c) => c.status === filter);
@@ -252,9 +285,21 @@ export function CandidateList({ candidates: initial }: Props) {
         </div>
       )}
 
-      {/* Filter tabs */}
-      <div className="flex gap-1 p-1 bg-secondary rounded-lg w-fit">
-        {filters.map((f) => (
+      {/* Refresh button + Filter tabs */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <button
+          onClick={handleRefreshCandidates}
+          disabled={isRefreshing}
+          className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+            isRefreshing
+              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+              : "bg-primary text-primary-foreground hover:bg-primary/90"
+          }`}
+        >
+          {isRefreshing ? "更新中..." : "投稿候補を更新"}
+        </button>
+        <div className="flex gap-1 p-1 bg-secondary rounded-lg w-fit">
+          {filters.map((f) => (
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
@@ -267,6 +312,7 @@ export function CandidateList({ candidates: initial }: Props) {
             {f.label}
           </button>
         ))}
+        </div>
       </div>
 
       {/* Cards */}
