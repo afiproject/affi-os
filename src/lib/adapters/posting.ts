@@ -120,7 +120,19 @@ export class XPostingAdapter implements PostingAdapter {
 
     if (postMode === "B" && affiliateUrl) {
       // モードB: 動画+テキスト → リプライにリンク
-      const mainResult = await postTweet(text, { media_id: mediaId });
+      let mainResult = await postTweet(text, { media_id: mediaId });
+
+      // 動画関連の403エラー → サムネイルにフォールバックしてリトライ
+      if (!mainResult.success && mediaId && mainResult.error?.includes("403") && thumbnailUrl) {
+        console.log(`[XPostingAdapter] Video post failed (mode B), retrying with thumbnail`);
+        debug.thumbnail_fallback = true;
+        const imgResult = await uploadImageFromUrl(thumbnailUrl);
+        debug.thumbnail_upload_ok = imgResult.success;
+        if (imgResult.success && imgResult.media_id) {
+          debug.final_media_id = imgResult.media_id;
+          mainResult = await postTweet(text, { media_id: imgResult.media_id });
+        }
+      }
 
       if (!mainResult.success || !mainResult.tweet_id) {
         return {
@@ -146,6 +158,26 @@ export class XPostingAdapter implements PostingAdapter {
     } else {
       // モードA: 動画+テキスト+リンクを1ツイート
       const result = await postTweet(text, { media_id: mediaId });
+
+      // 動画関連の403エラー（2分超過等）→ サムネイルにフォールバックしてリトライ
+      if (!result.success && mediaId && result.error?.includes("403") && thumbnailUrl) {
+        console.log(`[XPostingAdapter] Video post failed (${result.error}), retrying with thumbnail`);
+        debug.thumbnail_fallback = true;
+        const imgResult = await uploadImageFromUrl(thumbnailUrl);
+        debug.thumbnail_upload_ok = imgResult.success;
+        if (imgResult.success && imgResult.media_id) {
+          debug.final_media_id = imgResult.media_id;
+          const retryResult = await postTweet(text, { media_id: imgResult.media_id });
+          if (retryResult.success) {
+            return {
+              success: true,
+              external_post_id: retryResult.tweet_id,
+              posted_at: new Date().toISOString(),
+              media_debug: debug,
+            };
+          }
+        }
+      }
 
       if (result.success) {
         return {
