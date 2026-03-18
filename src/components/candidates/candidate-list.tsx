@@ -51,7 +51,7 @@ async function cacheVideoViaProxy(
 
 export function CandidateList({ candidates: initial }: Props) {
   const [candidates, setCandidates] = useState(initial);
-  const [filter, setFilter] = useState<FilterStatus>("all");
+  const [filter, setFilter] = useState<FilterStatus>("pending");
   const [cachingVideoId, setCachingVideoId] = useState<string | null>(null);
   const [postingStatus, setPostingStatus] = useState<{id: string; message: string; type: "info" | "success" | "error"} | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);

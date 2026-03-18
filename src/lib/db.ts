@@ -81,9 +81,6 @@ export async function getRecentItems(limit: number = 50): Promise<AffiliateItem[
 
 export async function getUnscoredItems(): Promise<AffiliateItem[]> {
   const db = getAdminClient();
-  // 今日収集されたもので、まだcandidateが作られていないアイテム
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
 
   // 投稿済みアイテムのitem_idを取得（posted_logs → scheduled_posts → candidate_posts → affiliate_items）
   const { data: postedItems } = await db
@@ -95,19 +92,47 @@ export async function getUnscoredItems(): Promise<AffiliateItem[]> {
       .filter(Boolean)
   );
 
+  // 日付制限なし: candidate_postsがないアイテムを最新順で取得（最大50件）
   const { data, error } = await db
     .from("affiliate_items")
     .select("*, candidate_posts(id)")
     .eq("is_excluded", false)
-    .gte("collected_at", today.toISOString())
-    .order("collected_at", { ascending: false });
+    .order("collected_at", { ascending: false })
+    .limit(200);
   if (error) throw error;
-  // candidate_postsが空 かつ 投稿済みでないものだけ返す
+  // candidate_postsが空 かつ 投稿済みでないものだけ返す（上限50件）
   return (data || []).filter(
     (item: AffiliateItem & { candidate_posts: { id: string }[] }) =>
       (!item.candidate_posts || item.candidate_posts.length === 0) &&
       !postedItemIds.has(item.id)
-  );
+  ).slice(0, 50);
+}
+
+/**
+ * pending状態の候補とそのバリアントを全削除
+ * 「投稿候補を更新」時に古い未処理候補をクリアして新しい候補を入れ替える
+ */
+export async function clearPendingCandidates(): Promise<number> {
+  const db = getAdminClient();
+
+  // pending候補のIDを取得
+  const { data: pendingCandidates, error: fetchError } = await db
+    .from("candidate_posts")
+    .select("id")
+    .eq("status", "pending");
+  if (fetchError) throw fetchError;
+
+  const ids = (pendingCandidates || []).map((c: AnyRecord) => c.id as string);
+  if (ids.length === 0) return 0;
+
+  // バリアントを先に削除（外部キー制約）
+  await db.from("candidate_post_variants").delete().in("candidate_id", ids);
+  // 候補を削除
+  const { error: deleteError } = await db.from("candidate_posts").delete().in("id", ids);
+  if (deleteError) throw deleteError;
+
+  console.log(`[clearPendingCandidates] Deleted ${ids.length} pending candidates`);
+  return ids.length;
 }
 
 export async function getItemById(id: string): Promise<AffiliateItem | null> {

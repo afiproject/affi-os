@@ -2,17 +2,28 @@ import { NextResponse } from "next/server";
 import { GET as collectHandler } from "@/app/api/cron/collect/route";
 import { GET as scoreHandler } from "@/app/api/cron/score/route";
 import { GET as generateHandler } from "@/app/api/cron/generate/route";
+import { clearPendingCandidates } from "@/lib/db";
 
 export const maxDuration = 120;
 export const preferredRegion = ["hnd1"];
 
 /**
  * POST /api/refresh-candidates — 投稿候補を手動更新
- * collect → score → generate を順番に実行（自動投稿はしない）
+ * pending候補を全削除 → collect → score → generate を順番に実行
  */
 export async function POST(request: Request) {
   const results: Record<string, unknown> = {};
   const start = Date.now();
+
+  // Step 0: 古いpending候補を全削除（投稿済み・却下済みは保持）
+  try {
+    const cleared = await clearPendingCandidates();
+    results.cleared = { pending_deleted: cleared };
+    console.log(`[refresh] cleared ${cleared} pending candidates`);
+  } catch (e) {
+    results.cleared = { error: String(e) };
+    console.error("[refresh] clear failed:", e);
+  }
 
   // CRONと同じ認証ヘッダーを内部リクエストに付与
   const internalRequest = new Request(request.url, {
