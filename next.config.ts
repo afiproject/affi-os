@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // ffmpeg-staticバイナリをサーバーレス関数にバンドル
+  serverExternalPackages: ["ffmpeg-static"],
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",

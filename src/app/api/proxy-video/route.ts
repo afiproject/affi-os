@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { updateCachedVideoUrl } from "@/lib/db";
+import { trimVideoToMiddle } from "@/lib/x-api";
 
 export const maxDuration = 60;
 // 東京リージョンで実行（FANZA CDNの地域制限を回避）
@@ -82,6 +83,13 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // キャッシュ前にトリミング（冒頭タイトル除去）
+    console.log(`[proxy-video] Trimming video (${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB)...`);
+    const trimmedBuffer = await trimVideoToMiddle(videoBuffer);
+    const wasTrimmed = trimmedBuffer.length !== videoBuffer.length;
+    console.log(`[proxy-video] Trim: ${wasTrimmed ? "trimmed" : "unchanged"} → ${(trimmedBuffer.length / 1024 / 1024).toFixed(1)}MB`);
+    videoBuffer = trimmedBuffer;
 
     // Supabase Storageにアップロード
     const db = getAdminClient();

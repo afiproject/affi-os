@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isDemoMode, getAdminClient } from "@/lib/supabase/admin";
-import { downloadVideo } from "@/lib/x-api";
+import { downloadVideo, trimVideoToMiddle } from "@/lib/x-api";
 import {
   getItemsNeedingVideoCache,
   updateCachedVideoUrl,
@@ -100,8 +100,14 @@ export async function GET(request: Request) {
           continue;
         }
 
+        // キャッシュ時にトリミング（冒頭タイトル除去）
+        console.log(`[cache-videos] Trimming video: ${item.external_id} (${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB)`);
+        const trimmedBuffer = await trimVideoToMiddle(videoBuffer);
+        const wasTrimmed = trimmedBuffer.length !== videoBuffer.length;
+        console.log(`[cache-videos] Trim result: ${wasTrimmed ? "trimmed" : "unchanged"} (${(trimmedBuffer.length / 1024 / 1024).toFixed(1)}MB)`);
+
         const fileName = `${item.external_id}.mp4`;
-        const publicUrl = await uploadToStorage(videoBuffer, fileName);
+        const publicUrl = await uploadToStorage(trimmedBuffer, fileName);
 
         if (publicUrl) {
           await updateCachedVideoUrl(item.id, publicUrl);
