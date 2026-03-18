@@ -88,12 +88,16 @@ export function CandidateList({ candidates: initial }: Props) {
     }
   }
 
+  // 「すべて」= pending のみ表示（採用済み・却下は専用タブで確認）
   const filtered =
-    filter === "all" ? candidates : candidates.filter((c) => c.status === filter);
+    filter === "all"
+      ? candidates.filter((c) => c.status === "pending")
+      : candidates.filter((c) => c.status === filter);
 
+  const pendingCount = candidates.filter((c) => c.status === "pending").length;
   const counts = {
-    all: candidates.length,
-    pending: candidates.filter((c) => c.status === "pending").length,
+    all: pendingCount,
+    pending: pendingCount,
     approved: candidates.filter((c) => c.status === "approved").length,
     rejected: candidates.filter((c) => c.status === "rejected").length,
   };
