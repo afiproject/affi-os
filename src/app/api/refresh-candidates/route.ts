@@ -52,9 +52,12 @@ export async function POST(request: Request) {
     console.error("[refresh] score failed:", e);
   }
 
-  // Step 3: Generate（上位10件のみ。全件はcronで処理）
+  // Step 3: Generate（quickモード: 上位5件×1トーン、ハッシュタグなし = 5APIコール）
   try {
-    const generateRequest = new Request(request.url + "?limit=10", {
+    const baseUrl = new URL(request.url);
+    baseUrl.searchParams.set("limit", "5");
+    baseUrl.searchParams.set("quick", "1");
+    const generateRequest = new Request(baseUrl.toString(), {
       headers: new Headers({
         authorization: `Bearer ${process.env.CRON_SECRET || ""}`,
       }),

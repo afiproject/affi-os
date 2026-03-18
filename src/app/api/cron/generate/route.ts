@@ -74,6 +74,13 @@ export async function GET(request: Request) {
     // variantが未生成の候補を取得（URLパラメータでlimit指定可能）
     const url = new URL(request.url, "http://localhost");
     const genLimit = parseInt(url.searchParams.get("limit") || "50", 10);
+    // quick=1: 1トーンのみ・ハッシュタグなしで高速生成（refresh用）
+    const quickMode = url.searchParams.get("quick") === "1";
+    const activeTones = quickMode ? (["click_bait"] as const) : tones;
+    const activeLabels = quickMode ? ["A"] : labels;
+
+    console.log(`[generate] Mode: ${quickMode ? "quick (1 tone, no hashtags)" : "full (3 tones + hashtags)"}, limit: ${genLimit}`);
+
     const candidates = await getTopCandidatesForGeneration(genLimit);
     let generatedCount = 0;
 
@@ -91,8 +98,8 @@ export async function GET(request: Request) {
         console.log(`[generate] Deleted ${oldVariants.length} old variants for candidate ${candidate.id}`);
       }
 
-      for (let t = 0; t < tones.length; t++) {
-        const tone = tones[t];
+      for (let t = 0; t < activeTones.length; t++) {
+        const tone = activeTones[t];
         const prompt = buildPostGenerationPrompt({
           item: candidate.item,
           tone,
@@ -114,22 +121,24 @@ export async function GET(request: Request) {
           continue;
         }
 
-        // ハッシュタグも生成
+        // ハッシュタグ生成（quickモードではスキップして速度を稼ぐ）
         let hashtags: string[] = [];
-        try {
-          const hashtagPrompt = buildHashtagPrompt(candidate.item, 3);
-          const hashtagResult = await provider.generateText(hashtagPrompt);
-          hashtags = hashtagResult.text
-            .split("\n")
-            .map((h) => h.trim())
-            .filter((h) => h.startsWith("#"));
-        } catch {
-          console.warn(`[generate] Hashtag generation failed, continuing without hashtags`);
+        if (!quickMode) {
+          try {
+            const hashtagPrompt = buildHashtagPrompt(candidate.item, 3);
+            const hashtagResult = await provider.generateText(hashtagPrompt);
+            hashtags = hashtagResult.text
+              .split("\n")
+              .map((h) => h.trim())
+              .filter((h) => h.startsWith("#"));
+          } catch {
+            console.warn(`[generate] Hashtag generation failed, continuing without hashtags`);
+          }
         }
 
         await createVariant({
           candidate_id: candidate.id,
-          variant_label: labels[t],
+          variant_label: activeLabels[t],
           body_text: result.text,
           tone,
           length: "medium",
