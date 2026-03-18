@@ -55,6 +55,26 @@ export function CandidateList({ candidates: initial }: Props) {
   const [cachingVideoId, setCachingVideoId] = useState<string | null>(null);
   const [postingStatus, setPostingStatus] = useState<{id: string; message: string; type: "info" | "success" | "error"} | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isReloading, setIsReloading] = useState(false);
+
+  // DBからデータだけ再取得（パイプライン再実行なし）
+  async function handleReloadData() {
+    setIsReloading(true);
+    try {
+      const res = await fetch("/api/candidates");
+      if (res.ok) {
+        const { candidates: allCandidates } = await res.json();
+        if (allCandidates) {
+          setCandidates(allCandidates);
+          setPostingStatus({ id: "__reload", message: `データを再読み込みしました（${allCandidates.length}件）`, type: "success" });
+        }
+      }
+    } catch (err) {
+      setPostingStatus({ id: "__reload", message: `再読み込みエラー: ${String(err)}`, type: "error" });
+    } finally {
+      setIsReloading(false);
+    }
+  }
 
   async function handleRefreshCandidates() {
     setIsRefreshing(true);
@@ -289,7 +309,7 @@ export function CandidateList({ candidates: initial }: Props) {
         </div>
       )}
 
-      {/* Refresh button + Filter tabs */}
+      {/* Refresh button + Reload button + Filter tabs */}
       <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={handleRefreshCandidates}
@@ -301,6 +321,17 @@ export function CandidateList({ candidates: initial }: Props) {
           }`}
         >
           {isRefreshing ? "更新中..." : "投稿候補を更新"}
+        </button>
+        <button
+          onClick={handleReloadData}
+          disabled={isReloading || isRefreshing}
+          className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors border ${
+            isReloading || isRefreshing
+              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "bg-background text-foreground hover:bg-secondary border-border"
+          }`}
+        >
+          {isReloading ? "読込中..." : "再読み込み"}
         </button>
         <div className="flex gap-1 p-1 bg-secondary rounded-lg w-fit">
           {filters.map((f) => (

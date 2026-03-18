@@ -83,9 +83,46 @@ export async function GET(request: Request) {
 
     const candidates = await getTopCandidatesForGeneration(genLimit);
     let generatedCount = 0;
+    let aiCallCount = 0;
+    let consecutiveFailures = 0;
+
+    // レート制限時のリトライ用
+    const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    // レート制限対応のAI呼び出しラッパー
+    async function callAIWithRetry(prompt: string, maxRetries = 2): Promise<Awaited<ReturnType<typeof provider.generateText>> | null> {
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const result = await provider.generateText(prompt);
+          aiCallCount++;
+          consecutiveFailures = 0;
+          return result;
+        } catch (err) {
+          aiCallCount++;
+          const errStr = String(err);
+          // レート制限エラーの場合はリトライ
+          if ((errStr.includes("429") || errStr.includes("rate") || errStr.includes("Rate")) && attempt < maxRetries) {
+            const waitMs = (attempt + 1) * 3000; // 3s, 6s
+            console.warn(`[generate] Rate limited, waiting ${waitMs}ms before retry ${attempt + 1}/${maxRetries}`);
+            await delay(waitMs);
+            continue;
+          }
+          consecutiveFailures++;
+          console.error(`[generate] AI failed (attempt ${attempt + 1}):`, errStr);
+          return null;
+        }
+      }
+      return null;
+    }
 
     for (const candidate of candidates) {
       if (!candidate.item) continue;
+
+      // 連続失敗が5回を超えたら中断（プロバイダー障害と判断）
+      if (consecutiveFailures >= 5) {
+        console.error(`[generate] 5 consecutive failures, stopping generation early`);
+        break;
+      }
 
       // 既存バリアントを全削除してから新規作成（デモ残留を完全防止）
       const db = (await import("@/lib/supabase/admin")).getAdminClient();
@@ -98,6 +135,7 @@ export async function GET(request: Request) {
         console.log(`[generate] Deleted ${oldVariants.length} old variants for candidate ${candidate.id}`);
       }
 
+      let candidateHasVariant = false;
       for (let t = 0; t < activeTones.length; t++) {
         const tone = activeTones[t];
         const prompt = buildPostGenerationPrompt({
@@ -107,13 +145,8 @@ export async function GET(request: Request) {
           ng_words: allNgWords,
         });
 
-        let result: Awaited<ReturnType<typeof provider.generateText>>;
-        try {
-          result = await provider.generateText(prompt);
-        } catch (err) {
-          console.error(`[generate] AI failed for candidate ${candidate.id}, tone ${tone}:`, String(err));
-          continue; // このトーンをスキップ、次のトーンへ
-        }
+        const result = await callAIWithRetry(prompt);
+        if (!result) continue;
 
         // デモテキストが返された場合はスキップ
         if (result.text.startsWith("[デモ]") || result.model === "demo-mock") {
@@ -124,15 +157,12 @@ export async function GET(request: Request) {
         // ハッシュタグ生成（quickモードではスキップして速度を稼ぐ）
         let hashtags: string[] = [];
         if (!quickMode) {
-          try {
-            const hashtagPrompt = buildHashtagPrompt(candidate.item, 3);
-            const hashtagResult = await provider.generateText(hashtagPrompt);
+          const hashtagResult = await callAIWithRetry(buildHashtagPrompt(candidate.item, 3));
+          if (hashtagResult) {
             hashtags = hashtagResult.text
               .split("\n")
               .map((h) => h.trim())
               .filter((h) => h.startsWith("#"));
-          } catch {
-            console.warn(`[generate] Hashtag generation failed, continuing without hashtags`);
           }
         }
 
@@ -145,6 +175,7 @@ export async function GET(request: Request) {
           hashtags,
           is_selected: t === 0, // 最初のバリアントをデフォルト選択
         });
+        candidateHasVariant = true;
 
         // AIログ記録
         await createAILog({
@@ -160,6 +191,8 @@ export async function GET(request: Request) {
 
         generatedCount++;
       }
+
+      console.log(`[generate] Candidate ${candidate.id}: ${candidateHasVariant ? "OK" : "FAILED"} (total: ${generatedCount} variants, ${aiCallCount} API calls)`);
     }
 
     // ---- 自動投稿: 承認なしでスケジュール登録 ----
