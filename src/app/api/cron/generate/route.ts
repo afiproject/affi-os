@@ -71,8 +71,10 @@ export async function GET(request: Request) {
     }
     const allNgWords = [...new Set([...ngWords, ...accountNgWords])];
 
-    // variantが未生成の全候補を取得
-    const candidates = await getTopCandidatesForGeneration(50);
+    // variantが未生成の候補を取得（URLパラメータでlimit指定可能）
+    const url = new URL(request.url, "http://localhost");
+    const genLimit = parseInt(url.searchParams.get("limit") || "50", 10);
+    const candidates = await getTopCandidatesForGeneration(genLimit);
     let generatedCount = 0;
 
     for (const candidate of candidates) {

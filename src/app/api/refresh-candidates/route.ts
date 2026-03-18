@@ -4,7 +4,7 @@ import { GET as scoreHandler } from "@/app/api/cron/score/route";
 import { GET as generateHandler } from "@/app/api/cron/generate/route";
 import { clearPendingCandidates } from "@/lib/db";
 
-export const maxDuration = 120;
+export const maxDuration = 300;
 export const preferredRegion = ["hnd1"];
 
 /**
@@ -52,9 +52,14 @@ export async function POST(request: Request) {
     console.error("[refresh] score failed:", e);
   }
 
-  // Step 3: Generate
+  // Step 3: Generate（上位10件のみ。全件はcronで処理）
   try {
-    const res = await generateHandler(internalRequest);
+    const generateRequest = new Request(request.url + "?limit=10", {
+      headers: new Headers({
+        authorization: `Bearer ${process.env.CRON_SECRET || ""}`,
+      }),
+    });
+    const res = await generateHandler(generateRequest);
     results.generate = await res.json();
     console.log("[refresh] generate done:", JSON.stringify(results.generate));
   } catch (e) {
