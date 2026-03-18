@@ -17,7 +17,7 @@ import { createPostingAdapter } from "@/lib/adapters/posting";
 export const maxDuration = 300;
 export const preferredRegion = ["hnd1"];
 
-const AUTO_POST_COUNT = 5; // 1回のpipelineで自動投稿する最大件数
+const AUTO_POST_COUNT = 2; // 1回のpipelineで自動投稿する最大件数（動画アップロードに時間がかかるため控えめに）
 
 /**
  * GET /api/cron/pipeline — 全自動パイプライン
@@ -30,7 +30,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const pipelineStart = Date.now();
   const results: Record<string, unknown> = {};
+
+  console.log("[pipeline] === Pipeline started ===");
 
   // Step 1: Collect
   try {
@@ -39,7 +42,10 @@ export async function GET(request: Request) {
     console.log("[pipeline] collect done:", JSON.stringify(results.collect));
   } catch (e) {
     results.collect = { error: String(e) };
+    console.error("[pipeline] collect FAILED:", String(e));
   }
+
+  console.log(`[pipeline] Elapsed after collect: ${((Date.now() - pipelineStart) / 1000).toFixed(1)}s`);
 
   // Step 2: Score
   try {
@@ -48,7 +54,10 @@ export async function GET(request: Request) {
     console.log("[pipeline] score done:", JSON.stringify(results.score));
   } catch (e) {
     results.score = { error: String(e) };
+    console.error("[pipeline] score FAILED:", String(e));
   }
+
+  console.log(`[pipeline] Elapsed after score: ${((Date.now() - pipelineStart) / 1000).toFixed(1)}s`);
 
   // Step 3: Generate
   try {
@@ -57,6 +66,16 @@ export async function GET(request: Request) {
     console.log("[pipeline] generate done:", JSON.stringify(results.generate));
   } catch (e) {
     results.generate = { error: String(e) };
+    console.error("[pipeline] generate FAILED:", String(e));
+  }
+
+  const elapsedAfterGenerate = (Date.now() - pipelineStart) / 1000;
+  console.log(`[pipeline] Elapsed after generate: ${elapsedAfterGenerate.toFixed(1)}s`);
+
+  // 残り時間が少ない場合（180秒以上経過）、動画スキップモードにする
+  const skipVideo = elapsedAfterGenerate > 180;
+  if (skipVideo) {
+    console.log("[pipeline] WARNING: Running low on time, will skip video upload and use thumbnails only");
   }
 
   // Step 4: 自動承認 → 即時投稿
@@ -112,8 +131,9 @@ export async function GET(request: Request) {
 
         const result = await adapter.post(fullText, {
           post_mode: "A",
-          video_url: sampleVideoUrl || undefined,
-          cached_video_url: cachedVideoUrl || undefined,
+          // 時間不足の場合は動画をスキップしてサムネのみ
+          video_url: skipVideo ? undefined : (sampleVideoUrl || undefined),
+          cached_video_url: skipVideo ? undefined : (cachedVideoUrl || undefined),
           affiliate_url: affiliateUrl || undefined,
           thumbnail_url: thumbnailUrl || undefined,
         });
@@ -174,9 +194,13 @@ export async function GET(request: Request) {
     console.error("[pipeline] Auto-post error:", e);
   }
 
+  const totalElapsed = ((Date.now() - pipelineStart) / 1000).toFixed(1);
+  console.log(`[pipeline] === Pipeline completed in ${totalElapsed}s ===`);
+
   return NextResponse.json({
     success: true,
     workflow: "pipeline",
+    elapsed_seconds: Number(totalElapsed),
     results,
     timestamp: new Date().toISOString(),
   });

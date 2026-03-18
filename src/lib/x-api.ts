@@ -101,6 +101,7 @@ export interface TweetResult {
 export interface TweetOptions {
   media_id?: string;
   reply_to_tweet_id?: string;
+  possibly_sensitive?: boolean;
 }
 
 export async function postTweet(text: string, options?: TweetOptions): Promise<TweetResult> {
@@ -112,6 +113,12 @@ export async function postTweet(text: string, options?: TweetOptions): Promise<T
   const url = "https://api.twitter.com/2/tweets";
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const payload: Record<string, any> = { text };
+
+  // アダルトコンテンツは必ずセンシティブフラグを付ける
+  // これによりXの自動検出ペナルティを回避し、適切に表示される
+  if (options?.possibly_sensitive !== false) {
+    payload.possibly_sensitive = true;
+  }
 
   if (options?.media_id) {
     payload.media = { media_ids: [options.media_id] };
