@@ -3,7 +3,7 @@
 // 投稿先プラットフォームの抽象インターフェース
 // ========================================
 
-import { postTweet, deleteTweet, isXApiConfigured, uploadVideo, downloadVideo, uploadImageFromUrl } from "@/lib/x-api";
+import { postTweet, deleteTweet, isXApiConfigured, uploadVideo, downloadVideo, uploadImageFromUrl, trimVideoToMiddle } from "@/lib/x-api";
 
 export interface PostResult {
   success: boolean;
@@ -15,6 +15,8 @@ export interface PostResult {
     video_url_used?: string;
     video_download_ok?: boolean;
     video_download_bytes?: number;
+    video_trimmed?: boolean;
+    video_trimmed_bytes?: number;
     video_upload_ok?: boolean;
     video_upload_error?: string;
     thumbnail_fallback?: boolean;
@@ -88,8 +90,13 @@ export class XPostingAdapter implements PostingAdapter {
       debug.video_download_ok = !!videoBuffer;
       debug.video_download_bytes = videoBuffer?.length || 0;
       if (videoBuffer) {
-        console.log(`[XPostingAdapter] Uploading video (${videoBuffer.length} bytes)`);
-        const uploadResult = await uploadVideo(videoBuffer);
+        // 動画の中間部分を切り抜き（失敗時は元動画をそのまま使用）
+        console.log(`[XPostingAdapter] Trimming video to middle section...`);
+        const trimmedBuffer = await trimVideoToMiddle(videoBuffer);
+        debug.video_trimmed = trimmedBuffer.length !== videoBuffer.length;
+        debug.video_trimmed_bytes = trimmedBuffer.length;
+        console.log(`[XPostingAdapter] Uploading video (${trimmedBuffer.length} bytes${debug.video_trimmed ? ", trimmed" : ", untrimmed"})`);
+        const uploadResult = await uploadVideo(trimmedBuffer);
         debug.video_upload_ok = uploadResult.success;
         if (uploadResult.success && uploadResult.media_id) {
           mediaId = uploadResult.media_id;

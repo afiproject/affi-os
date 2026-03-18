@@ -4,6 +4,13 @@
 // ========================================
 
 import crypto from "crypto";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import { writeFile, unlink, readFile } from "fs/promises";
+import { tmpdir } from "os";
+import { join } from "path";
+
+const execFileAsync = promisify(execFile);
 
 interface XApiConfig {
   apiKey: string;
@@ -463,6 +470,121 @@ export async function downloadVideo(videoUrl: string): Promise<Buffer | null> {
 
   console.error(`[downloadVideo] ALL URLS FAILED for ${videoUrl}`);
   return null;
+}
+
+// ==========================================
+// Video Trimming (中間切り抜き)
+// ==========================================
+
+/**
+ * ffmpegバイナリパスを取得
+ * Vercel上ではffmpeg-staticが正常にインストールされるため利用可能
+ */
+function getFfmpegPath(): string | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const ffmpegPath = require("ffmpeg-static") as string;
+    return ffmpegPath || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 動画の長さ（秒）を取得
+ * ffprobeがなくてもffmpegで取得可能
+ */
+async function getVideoDuration(ffmpegPath: string, inputPath: string): Promise<number | null> {
+  try {
+    // ffmpegに無効な出力先を渡してstderrから情報取得
+    const { stderr } = await execFileAsync(ffmpegPath, [
+      "-i", inputPath,
+      "-f", "null", "-"
+    ], { timeout: 10000 }).catch((err: { stderr?: string }) => {
+      // ffmpegは入力ファイル情報だけ出すと非ゼロで終了するのでstderrを取得
+      return { stdout: "", stderr: err.stderr || "" };
+    });
+
+    // "Duration: 00:01:23.45" を探す
+    const match = stderr.match(/Duration:\s*(\d+):(\d+):(\d+)\.(\d+)/);
+    if (!match) return null;
+
+    const hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const seconds = parseInt(match[3], 10);
+    const centiseconds = parseInt(match[4], 10);
+
+    return hours * 3600 + minutes * 60 + seconds + centiseconds / 100;
+  } catch (err) {
+    console.error(`[trimVideo] Failed to get duration: ${String(err)}`);
+    return null;
+  }
+}
+
+/**
+ * 動画の中間部分を切り抜き
+ * - 動画の40%地点から最大15秒を切り出す
+ * - `-c copy` でコーデックそのままコピー（画質劣化なし、高速）
+ * - 失敗時は元のBufferをそのまま返す（フロー中断しない）
+ */
+export async function trimVideoToMiddle(videoBuffer: Buffer): Promise<Buffer> {
+  const ffmpegPath = getFfmpegPath();
+  if (!ffmpegPath) {
+    console.log("[trimVideo] ffmpeg not available, using original video");
+    return videoBuffer;
+  }
+
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  const inputPath = join(tmpdir(), `affi-input-${id}.mp4`);
+  const outputPath = join(tmpdir(), `affi-trimmed-${id}.mp4`);
+
+  try {
+    // 入力ファイルを書き出し
+    await writeFile(inputPath, videoBuffer);
+
+    // 動画の長さを取得
+    const duration = await getVideoDuration(ffmpegPath, inputPath);
+    if (!duration || duration < 5) {
+      console.log(`[trimVideo] Video too short (${duration}s) or duration unknown, using original`);
+      return videoBuffer;
+    }
+
+    // 切り抜き位置を計算: 40%地点から、最大15秒
+    const clipDuration = Math.min(15, duration * 0.3); // 動画の30%か15秒の短い方
+    const startTime = duration * 0.4; // 40%地点から開始
+
+    console.log(`[trimVideo] Duration=${duration.toFixed(1)}s, trimming: ${startTime.toFixed(1)}s → ${(startTime + clipDuration).toFixed(1)}s (${clipDuration.toFixed(1)}s clip)`);
+
+    // ffmpegで切り抜き（-c copy = 再エンコードなし = 画質劣化なし）
+    await execFileAsync(ffmpegPath, [
+      "-ss", startTime.toFixed(2),
+      "-i", inputPath,
+      "-t", clipDuration.toFixed(2),
+      "-c", "copy",
+      "-movflags", "+faststart",  // Web再生最適化
+      "-y",
+      outputPath,
+    ], { timeout: 30000 });
+
+    // トリミング結果を読み込み
+    const trimmedBuffer = await readFile(outputPath);
+
+    // サイズチェック（空や極小ファイルなら元を使う）
+    if (trimmedBuffer.length < 10000) {
+      console.warn(`[trimVideo] Trimmed file too small (${trimmedBuffer.length} bytes), using original`);
+      return videoBuffer;
+    }
+
+    console.log(`[trimVideo] SUCCESS: ${(videoBuffer.length / 1024 / 1024).toFixed(1)}MB → ${(trimmedBuffer.length / 1024 / 1024).toFixed(1)}MB`);
+    return trimmedBuffer;
+  } catch (err) {
+    console.error(`[trimVideo] Failed, using original video: ${String(err)}`);
+    return videoBuffer;
+  } finally {
+    // 一時ファイルを掃除（エラーでも必ず実行）
+    await unlink(inputPath).catch(() => {});
+    await unlink(outputPath).catch(() => {});
+  }
 }
 
 /**
