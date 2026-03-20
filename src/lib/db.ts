@@ -135,6 +135,54 @@ export async function clearPendingCandidates(): Promise<number> {
   return ids.length;
 }
 
+/**
+ * 投稿済み・失敗した候補を削除して、アイテムを再利用可能にする
+ * パイプラインの最初に呼ぶことで、候補枯渇を防ぐ
+ */
+export async function cleanupOldCandidates(): Promise<{ deleted: number; recycled: number }> {
+  const db = getAdminClient();
+
+  // 3日以上前に投稿済み or 失敗した候補を削除（アイテムの再利用を可能にする）
+  const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
+  // 投稿済み・失敗した候補を取得
+  const { data: oldCandidates, error: fetchError } = await db
+    .from("candidate_posts")
+    .select("id, status, updated_at")
+    .in("status", ["approved", "rejected", "failed"])
+    .lt("updated_at", threeDaysAgo);
+  if (fetchError) throw fetchError;
+
+  const ids = (oldCandidates || []).map((c: AnyRecord) => c.id as string);
+  if (ids.length === 0) return { deleted: 0, recycled: 0 };
+
+  // 外部キー順序: posted_logs → scheduled_posts → candidate_post_variants → candidate_posts
+  // 1. scheduled_postsのIDを取得
+  const { data: scheduledPosts } = await db
+    .from("scheduled_posts")
+    .select("id")
+    .in("candidate_id", ids);
+  const spIds = (scheduledPosts || []).map((sp: AnyRecord) => sp.id as string);
+
+  // 2. posted_logsを削除（scheduled_post_idを参照）
+  if (spIds.length > 0) {
+    await db.from("posted_logs").delete().in("scheduled_post_id", spIds);
+  }
+
+  // 3. scheduled_postsを削除
+  await db.from("scheduled_posts").delete().in("candidate_id", ids);
+
+  // 4. バリアントを削除
+  await db.from("candidate_post_variants").delete().in("candidate_id", ids);
+
+  // 5. 候補を削除
+  const { error: deleteError } = await db.from("candidate_posts").delete().in("id", ids);
+  if (deleteError) throw deleteError;
+
+  console.log(`[cleanupOldCandidates] Deleted ${ids.length} old candidates (approved/rejected/failed older than 3 days)`);
+  return { deleted: ids.length, recycled: ids.length };
+}
+
 export async function getItemById(id: string): Promise<AffiliateItem | null> {
   const db = getAdminClient();
   const { data, error } = await db

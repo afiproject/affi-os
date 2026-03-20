@@ -69,8 +69,8 @@ export class DMMAdapter implements AffiliateSourceAdapter {
       ? "rank"
       : sortOptions[Math.floor(Math.random() * sortOptions.length)];
 
-    // ページもランダムにずらす（1〜5ページ目）
-    const offset = Math.floor(Math.random() * 5) * hits + 1;
+    // ページを広範囲にランダム化（1〜15ページ目）で重複を減らす
+    const offset = Math.floor(Math.random() * 15) * hits + 1;
 
     const params = new URLSearchParams({
       api_id: this.apiId,

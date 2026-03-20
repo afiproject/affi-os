@@ -12,6 +12,7 @@ import {
   startWorkflow,
   completeWorkflow,
   logError,
+  cleanupOldCandidates,
 } from "@/lib/db";
 import { createPostingAdapter } from "@/lib/adapters/posting";
 
@@ -35,6 +36,16 @@ export async function GET(request: Request) {
   const results: Record<string, unknown> = {};
 
   console.log("[pipeline] === Pipeline started ===");
+
+  // Step 0: 古い候補をクリーンアップ（投稿済み/失敗を削除→アイテム再利用可能に）
+  try {
+    const cleanup = await cleanupOldCandidates();
+    results.cleanup = cleanup;
+    console.log(`[pipeline] cleanup done: ${cleanup.deleted} old candidates removed`);
+  } catch (e) {
+    results.cleanup = { error: String(e) };
+    console.error("[pipeline] cleanup FAILED:", String(e));
+  }
 
   // Step 1: Collect
   try {
@@ -88,13 +99,18 @@ export async function GET(request: Request) {
   // Step 4: 自動承認 → 即時投稿
   try {
     const candidates = await getCandidates({ status: "pending" });
+    const withVariants = candidates.filter((c) => c.variants && c.variants.length > 0 && c.variants.some((v) => v.body_text));
     // スコア上位N件を自動承認して投稿
-    const topCandidates = candidates
-      .filter((c) => c.variants && c.variants.length > 0 && c.variants.some((v) => v.body_text))
+    const topCandidates = withVariants
       .sort((a, b) => b.total_score - a.total_score)
       .slice(0, AUTO_POST_COUNT);
 
-    console.log(`[pipeline] Auto-posting ${topCandidates.length} candidates`);
+    console.log(`[pipeline] Candidates: ${candidates.length} pending, ${withVariants.length} with variants, posting ${topCandidates.length}`);
+    if (candidates.length === 0) {
+      console.warn("[pipeline] WARNING: No pending candidates found. Check if collect/score/generate succeeded.");
+    } else if (withVariants.length === 0) {
+      console.warn("[pipeline] WARNING: Pending candidates exist but none have variants. Generate step may have failed.");
+    }
 
     const adapter = createPostingAdapter("x");
     let posted = 0;
