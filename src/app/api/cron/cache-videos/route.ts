@@ -77,7 +77,10 @@ export async function GET(request: Request) {
   try {
     await ensureBucket();
 
-    const items = await getItemsNeedingVideoCache(10);
+    // URLパラメータでlimit指定可能（pipeline経由は少なめにしてタイムアウト防止）
+    const url = new URL(request.url, "http://localhost");
+    const cacheLimit = parseInt(url.searchParams.get("limit") || "10", 10);
+    const items = await getItemsNeedingVideoCache(cacheLimit);
     let cachedCount = 0;
     let failedCount = 0;
 

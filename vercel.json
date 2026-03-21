@@ -12,12 +12,19 @@
     },
     "src/app/api/post-now/route.ts": {
       "maxDuration": 120
+    },
+    "src/app/api/cron/post/route.ts": {
+      "maxDuration": 120
     }
   },
   "crons": [
     {
       "path": "/api/cron/pipeline",
       "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron/post",
+      "schedule": "0 0 * * *"
     }
   ]
 }

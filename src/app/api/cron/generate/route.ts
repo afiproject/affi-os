@@ -196,13 +196,15 @@ export async function GET(request: Request) {
     }
 
     // ---- 自動投稿: 承認なしでスケジュール登録 ----
+    // pipeline経由の場合はpipeline側でauto-postするのでスキップ
+    const calledFromPipeline = new URL(request.url, "http://localhost").searchParams.get("from") === "pipeline";
     let autoScheduledCount = 0;
     const settings = await getSystemSettings();
     const autoPostEnabled = settings?.auto_post_enabled ?? false;
 
-    console.log(`[generate] Auto-post check: enabled=${autoPostEnabled}, candidates=${candidates.length}, account=${account?.id || "NULL"}`);
+    console.log(`[generate] Auto-post check: enabled=${autoPostEnabled}, fromPipeline=${calledFromPipeline}, candidates=${candidates.length}, account=${account?.id || "NULL"}`);
 
-    if (autoPostEnabled && candidates.length > 0 && account) {
+    if (autoPostEnabled && !calledFromPipeline && candidates.length > 0 && account) {
       // 既存スケジュールを取得して最適時間枠を計算
       const existingScheduled = await getScheduledPosts({ status: "scheduled" });
       const slots = findOptimalTimeSlots(existingScheduled, candidates.length);
