@@ -8,7 +8,7 @@ import {
 } from "@/lib/db";
 
 // Vercel関数タイムアウトを延長（動画アップロードに時間がかかるため）
-export const maxDuration = 120;
+export const maxDuration = 300;
 export const preferredRegion = ["hnd1"];
 
 const MAX_RETRIES = 3;

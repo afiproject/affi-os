@@ -84,46 +84,84 @@ export class XPostingAdapter implements PostingAdapter {
     let mediaId: string | undefined;
     const isCached = !!cachedVideoUrl;
     const effectiveVideoUrl = cachedVideoUrl || videoUrl;
+
+    // === 動画アップロードフロー ===
     if (effectiveVideoUrl) {
       debug.video_url_used = effectiveVideoUrl;
-      console.log(`[XPostingAdapter] Downloading video: ${effectiveVideoUrl}${isCached ? " (cached, already trimmed)" : ""}`);
+      console.log(`[XPostingAdapter] === VIDEO UPLOAD START ===`);
+      console.log(`[XPostingAdapter] URL: ${effectiveVideoUrl}${isCached ? " (cached)" : " (CDN direct)"}`);
+
+      // Step 1: 動画ダウンロード
       const videoBuffer = await downloadVideo(effectiveVideoUrl);
       debug.video_download_ok = !!videoBuffer;
       debug.video_download_bytes = videoBuffer?.length || 0;
-      if (videoBuffer) {
-        // キャッシュ済み動画はcache-videosで既にトリミング済みなのでスキップ
+
+      if (!videoBuffer) {
+        console.error(`[XPostingAdapter] VIDEO DOWNLOAD FAILED: ${effectiveVideoUrl}`);
+
+        // キャッシュURLが失敗した場合、元のCDN URLでもリトライ
+        if (isCached && videoUrl) {
+          console.log(`[XPostingAdapter] Retrying with original CDN URL: ${videoUrl}`);
+          const retryBuffer = await downloadVideo(videoUrl);
+          if (retryBuffer) {
+            debug.video_download_ok = true;
+            debug.video_download_bytes = retryBuffer.length;
+            debug.video_url_used = videoUrl;
+            console.log(`[XPostingAdapter] CDN retry SUCCESS: ${retryBuffer.length} bytes`);
+            // retryBufferで続行（下のロジックで処理）
+            const trimmed = await trimVideoToMiddle(retryBuffer);
+            debug.video_trimmed = trimmed.length !== retryBuffer.length;
+            debug.video_trimmed_bytes = trimmed.length;
+            const uploadResult = await uploadVideo(trimmed);
+            debug.video_upload_ok = uploadResult.success;
+            if (uploadResult.success && uploadResult.media_id) {
+              mediaId = uploadResult.media_id;
+              console.log(`[XPostingAdapter] Video uploaded via CDN retry: media_id=${mediaId}`);
+            } else {
+              debug.video_upload_error = uploadResult.error;
+              console.error(`[XPostingAdapter] Video upload failed on CDN retry: ${uploadResult.error}`);
+            }
+          } else {
+            console.error(`[XPostingAdapter] CDN retry also FAILED`);
+          }
+        }
+      } else {
+        // Step 2: トリミング
         let uploadBuffer: Buffer;
         if (isCached) {
           console.log(`[XPostingAdapter] Using cached video as-is (${videoBuffer.length} bytes)`);
           uploadBuffer = videoBuffer;
           debug.video_trimmed = false;
         } else {
-          console.log(`[XPostingAdapter] Trimming video to middle section...`);
+          console.log(`[XPostingAdapter] Trimming video...`);
           uploadBuffer = await trimVideoToMiddle(videoBuffer);
           debug.video_trimmed = uploadBuffer.length !== videoBuffer.length;
         }
         debug.video_trimmed_bytes = uploadBuffer.length;
-        console.log(`[XPostingAdapter] Uploading video to X (${uploadBuffer.length} bytes${debug.video_trimmed ? ", trimmed" : ""})`);
+
+        // Step 3: X APIにアップロード
+        console.log(`[XPostingAdapter] Uploading to X API: ${(uploadBuffer.length / 1024 / 1024).toFixed(1)}MB`);
         const uploadResult = await uploadVideo(uploadBuffer);
         debug.video_upload_ok = uploadResult.success;
         if (uploadResult.success && uploadResult.media_id) {
           mediaId = uploadResult.media_id;
-          console.log(`[XPostingAdapter] Video uploaded: media_id=${mediaId}`);
+          console.log(`[XPostingAdapter] VIDEO UPLOAD SUCCESS: media_id=${mediaId}`);
         } else {
           debug.video_upload_error = uploadResult.error;
-          console.error(`[XPostingAdapter] Video upload failed: ${uploadResult.error}`);
+          console.error(`[XPostingAdapter] VIDEO UPLOAD FAILED: ${uploadResult.error}`);
         }
-      } else {
-        console.error(`[XPostingAdapter] Video download FAILED for: ${effectiveVideoUrl}`);
       }
+      console.log(`[XPostingAdapter] === VIDEO UPLOAD END (mediaId=${mediaId || "NONE"}) ===`);
     } else {
-      console.log(`[XPostingAdapter] No video URL available, will use thumbnail`);
+      console.log(`[XPostingAdapter] No video URL available`);
     }
 
-    // 動画が使えなかった場合、サムネ画像をフォールバックで添付
+    // サムネフォールバック: 動画が完全に失敗した場合のみ
     if (!mediaId && thumbnailUrl) {
       debug.thumbnail_fallback = true;
-      console.log(`[XPostingAdapter] Video unavailable, using thumbnail: ${thumbnailUrl}`);
+      const reason = debug.video_upload_error || (!debug.video_download_ok ? "動画ダウンロード失敗" : "動画URLなし");
+      console.warn(`[XPostingAdapter] THUMBNAIL FALLBACK: ${reason}`);
+      console.warn(`[XPostingAdapter] video_url=${videoUrl}, cached_video_url=${cachedVideoUrl}, download_ok=${debug.video_download_ok}, upload_error=${debug.video_upload_error}`);
       const imgResult = await uploadImageFromUrl(thumbnailUrl);
       debug.thumbnail_upload_ok = imgResult.success;
       if (imgResult.success && imgResult.media_id) {
@@ -131,7 +169,7 @@ export class XPostingAdapter implements PostingAdapter {
         console.log(`[XPostingAdapter] Thumbnail uploaded: media_id=${mediaId}`);
       } else {
         debug.thumbnail_upload_error = imgResult.error;
-        console.error(`[XPostingAdapter] Thumbnail upload failed: ${imgResult.error}`);
+        console.error(`[XPostingAdapter] Thumbnail upload also failed: ${imgResult.error}`);
       }
     }
 

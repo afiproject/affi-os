@@ -172,7 +172,7 @@ export async function postTweet(text: string, options?: TweetOptions): Promise<T
 // ==========================================
 
 const MEDIA_UPLOAD_URL = "https://upload.twitter.com/1.1/media/upload.json";
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
+const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB（X API安定性のため小さめ）
 
 export interface MediaUploadResult {
   success: boolean;
@@ -281,33 +281,56 @@ async function mediaUploadAppend(
 ): Promise<{ success: boolean; error?: string }> {
   const authHeader = buildOAuthHeader("POST", MEDIA_UPLOAD_URL, config);
 
-  const boundary = `----boundary${Date.now()}`;
+  const boundary = `----boundary${Date.now()}${segmentIndex}`;
   const parts: Buffer[] = [];
 
+  // command, media_id, segment_index をフォームフィールドとして送信
   parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="command"\r\n\r\nAPPEND\r\n`));
   parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="media_id"\r\n\r\n${mediaId}\r\n`));
   parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="segment_index"\r\n\r\n${segmentIndex}\r\n`));
-  parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="media_data"\r\n\r\n`));
-  parts.push(Buffer.from(chunk.toString("base64")));
+
+  // media フィールドでバイナリ送信（base64のmedia_dataより確実）
+  parts.push(Buffer.from(
+    `--${boundary}\r\nContent-Disposition: form-data; name="media"; filename="chunk${segmentIndex}.mp4"\r\nContent-Type: video/mp4\r\n\r\n`
+  ));
+  parts.push(chunk); // バイナリそのまま送信
   parts.push(Buffer.from(`\r\n--${boundary}--\r\n`));
 
   const bodyBuffer = Buffer.concat(parts);
 
-  const res = await fetch(MEDIA_UPLOAD_URL, {
-    method: "POST",
-    headers: {
-      Authorization: authHeader,
-      "Content-Type": `multipart/form-data; boundary=${boundary}`,
-    },
-    body: bodyBuffer,
-  });
+  // リトライ付き（ネットワーク不安定対策）
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(MEDIA_UPLOAD_URL, {
+        method: "POST",
+        headers: {
+          Authorization: authHeader,
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+        },
+        body: bodyBuffer,
+      });
 
-  if (!res.ok && res.status !== 204) {
-    const text = await res.text();
-    return { success: false, error: `APPEND error (${res.status}): ${text}` };
+      if (res.ok || res.status === 204) {
+        return { success: true };
+      }
+
+      const text = await res.text();
+      if (attempt < 2 && (res.status >= 500 || res.status === 429)) {
+        console.warn(`[uploadVideo] APPEND retry ${attempt + 1}: ${res.status} ${text}`);
+        await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
+        continue;
+      }
+      return { success: false, error: `APPEND error (${res.status}): ${text}` };
+    } catch (err) {
+      if (attempt < 2) {
+        console.warn(`[uploadVideo] APPEND retry ${attempt + 1}: ${String(err)}`);
+        await new Promise((r) => setTimeout(r, (attempt + 1) * 2000));
+        continue;
+      }
+      return { success: false, error: `APPEND network error: ${String(err)}` };
+    }
   }
-
-  return { success: true };
+  return { success: false, error: "APPEND exhausted retries" };
 }
 
 async function mediaUploadFinalize(
@@ -343,7 +366,7 @@ async function mediaUploadFinalize(
 async function waitForProcessing(
   config: XApiConfig,
   mediaId: string,
-  maxWaitMs: number = 120000
+  maxWaitMs: number = 180000
 ): Promise<{ success: boolean; error?: string }> {
   const startTime = Date.now();
 

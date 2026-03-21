@@ -11,10 +11,16 @@
       "maxDuration": 300
     },
     "src/app/api/post-now/route.ts": {
-      "maxDuration": 120
+      "maxDuration": 300
     },
     "src/app/api/cron/post/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/proxy-video/route.ts": {
       "maxDuration": 120
+    },
+    "src/app/api/cron/cache-videos/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
